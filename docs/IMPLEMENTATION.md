@@ -10,6 +10,9 @@ The working local stack has four layers:
 4. Optional LaunchAgents `ai.openclaw.findmysync.receiver` and
    `ai.openclaw.findmysync.app` receive local FindMySync-style POSTs and start
    the sender app at login.
+5. Optional LaunchAgents `ai.openclaw.findmy.owntracks-stack` and
+   `ai.openclaw.findmy.owntracks-bridge` start the local OwnTracks web map and
+   publish people/devices/items from the private exact export every 5 minutes.
 
 Normal agents should read:
 
@@ -69,6 +72,40 @@ The reproducible Swift patch is stored at:
 ```text
 patches/FindMySync-openclaw-export.patch
 ```
+
+## OwnTracks Web Viewer
+
+The local OwnTracks viewer is available at:
+
+```text
+http://127.0.0.1:18084
+```
+
+The recorder API is bound to localhost:
+
+```text
+http://127.0.0.1:18083
+```
+
+Docker containers:
+
+- `openclaw-owntracks-mqtt`
+- `openclaw-owntracks-recorder`
+- `openclaw-owntracks-frontend`
+
+The bridge writes OwnTracks-compatible local traces for:
+
+- `people`
+- `devices`
+- `items`
+
+The trace store lives under:
+
+```text
+/Users/mh/.openclaw/workspace/state/apple-find-my/owntracks
+```
+
+Do not publish this store. It contains exact private location history.
 
 ## Contacts Enrichment
 
@@ -130,6 +167,19 @@ Receiver UI:
 
 ```text
 http://127.0.0.1:8765/findmysync
+```
+
+OwnTracks viewer install:
+
+```bash
+scripts/install_owntracks_stack.sh
+```
+
+Inspect:
+
+```bash
+launchctl print gui/$(id -u)/ai.openclaw.findmy.owntracks-stack
+launchctl print gui/$(id -u)/ai.openclaw.findmy.owntracks-bridge
 ```
 
 ## Security Reset

@@ -15,6 +15,7 @@ keys have been extracted once on the same Mac.
 - Use `/Users/mh/.openclaw/workspace/state/apple-find-my/export/private-exact.json` only when Martin explicitly asks for exact private data.
 - Do not commit or publish state files, keys, cache files, or decrypted databases.
 - For FindMySync tests, summarize counts from `/Users/mh/.openclaw/workspace/state/apple-find-my/findmysync/events.jsonl`; do not print raw GPS payloads.
+- For OwnTracks web viewer checks, summarize counts from the local store under `/Users/mh/.openclaw/workspace/state/apple-find-my/owntracks`; do not print exact coordinates.
 
 ## Commands
 
@@ -37,6 +38,12 @@ Install/update the optional FindMySync local receiver:
 /Users/mh/Documents/Playground/openclaw-apple-findmy-skill/scripts/install_findmysync_app_launchagent.sh
 ```
 
+Install/update the optional OwnTracks local web viewer:
+
+```bash
+/Users/mh/Documents/Playground/openclaw-apple-findmy-skill/scripts/install_owntracks_stack.sh
+```
+
 Read the latest redacted status:
 
 ```bash
@@ -49,6 +56,12 @@ Open the local FindMySync receiver UI:
 http://127.0.0.1:8765/findmysync
 ```
 
+Open the local OwnTracks web viewer:
+
+```text
+http://127.0.0.1:18084
+```
+
 ## What It Covers
 
 - Items and AirTags from `Items.data`
@@ -58,6 +71,7 @@ http://127.0.0.1:8765/findmysync
 - FollowMyFriends local database table counts
 - macOS Contacts name, email, phone, and photo-presence enrichment for FollowMyFriends handles
 - Optional patched FindMySync.app posts to the local receiver for integration tests
+- Optional OwnTracks Recorder + Frontend displays local traces for people, devices, and items
 
 ## Required Local Files
 

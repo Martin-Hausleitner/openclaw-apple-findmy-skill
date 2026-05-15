@@ -1,110 +1,184 @@
 ---
 name: apple-find-my
-description: Use when Martin asks OpenClaw or Hermes to read his consented Apple Find My items, devices, family devices, or FollowMyFriends people from the local macOS cache.
+description: Use when Martin asks OpenClaw or Hermes to read, verify, install, debug, or dashboard his consented local Apple Find My people, devices, items, AirTags, FollowMyFriends, FindMySync, OwnTracks, Traccar, or GeoPulse data.
 ---
 
-# Apple Find My Local Export
+# Apple Find My Local Pipeline
 
-This skill reads Martin's own Apple Find My data from local macOS caches after
-keys have been extracted once on the same Mac.
+Use this skill for Martin's local Apple Find My stack. The stack keeps private
+location data on the Mac and exposes only redacted summaries by default.
 
-## Safety
+## Safety Rules
 
-- Never print Apple Find My keys, raw decrypted plist rows, raw SQLite rows, or exact coordinates by default.
-- Use `/Users/mh/.openclaw/workspace/state/apple-find-my/export/redacted-summary.json` for normal agent answers.
-- Use `/Users/mh/.openclaw/workspace/state/apple-find-my/export/private-exact.json` only when Martin explicitly asks for exact private data.
-- Do not commit or publish state files, keys, cache files, or decrypted databases.
-- For FindMySync tests, summarize counts from `/Users/mh/.openclaw/workspace/state/apple-find-my/findmysync/events.jsonl`; do not print raw GPS payloads.
-- For OwnTracks web viewer checks, summarize counts from the local store under `/Users/mh/.openclaw/workspace/state/apple-find-my/owntracks`; do not print exact coordinates.
-- For GeoPulse web viewer checks, summarize `/api/gps/summary` and `/api/gps/source`; do not print raw GPS payloads or exact coordinates.
-- For Traccar web viewer checks, summarize `/api/devices` and `/api/positions`; do not print raw GPS payloads or exact coordinates.
+- Never print Apple Find My keys, raw decrypted plist rows, raw SQLite rows,
+  dashboard login files, raw GPS payloads, or exact coordinates by default.
+- Use the redacted summary for normal answers:
 
-## Commands
+```bash
+cat /Users/mh/.openclaw/workspace/state/apple-find-my/export/latest-summary.json
+```
+
+- Use exact private data only for local bridge/debug work and only summarize
+  results in chat.
+- Do not commit or publish files under:
+
+```text
+/Users/mh/.openclaw/workspace/state/apple-find-my
+```
+
+## Mental Model
+
+| Component | Role |
+|---|---|
+| FollowMyFriends | people/friends source |
+| FindMySync | devices/items sender shape and fallback |
+| `openclaw_findmy_export.py` | normalized local export |
+| OwnTracks | lightweight 34-track map |
+| Traccar | multi-device dashboard |
+| GeoPulse | timeline/GPS-data dashboard |
+
+Current verified shape:
+
+```text
+34 tracks = 14 people + 9 devices + 11 items
+```
+
+FindMySync does **not** provide people in the current local setup. FollowMyFriends
+does **not** provide AirTags/items as its primary data source.
+
+## Core Commands
 
 Run a one-shot export:
 
 ```bash
-/Users/mh/.openclaw/workspace/.venvs/findmy-key-extractor/bin/python /Users/mh/Documents/Playground/openclaw-apple-findmy-skill/scripts/openclaw_findmy_export.py --print-summary
+/Users/mh/.openclaw/workspace/.venvs/findmy-key-extractor/bin/python \
+  /Users/mh/Documents/Playground/openclaw-apple-findmy-skill/scripts/openclaw_findmy_export.py \
+  --print-summary
 ```
 
-Install/update the hourly LaunchAgent:
+Install or refresh the hourly core export:
 
 ```bash
 /Users/mh/Documents/Playground/openclaw-apple-findmy-skill/scripts/install_launchagent.sh
 ```
 
-It currently runs hourly to reduce overhead.
-
-Install/update the optional FindMySync local receiver:
+Install existing-tool path:
 
 ```bash
 /Users/mh/Documents/Playground/openclaw-apple-findmy-skill/scripts/install_findmysync_receiver_launchagent.sh
 /Users/mh/Documents/Playground/openclaw-apple-findmy-skill/scripts/install_findmysync_app_launchagent.sh
 ```
 
-Install/update the optional OwnTracks local web viewer:
+Install dashboards:
 
 ```bash
 /Users/mh/Documents/Playground/openclaw-apple-findmy-skill/scripts/install_owntracks_stack.sh
-```
-
-Read the latest redacted status:
-
-```bash
-cat /Users/mh/.openclaw/workspace/state/apple-find-my/export/latest-summary.json
-```
-
-Open the local FindMySync receiver UI:
-
-```text
-http://127.0.0.1:8765/findmysync
-```
-
-Open the local OwnTracks web viewer:
-
-```text
-http://127.0.0.1:18084
-```
-
-Open the local comparison UIs:
-
-```text
-http://127.0.0.1:18082  # Traccar
-http://127.0.0.1:18085  # GeoPulse
-```
-
-Install/update the optional GeoPulse local web UI and hourly bridge:
-
-```bash
+/Users/mh/Documents/Playground/openclaw-apple-findmy-skill/scripts/install_traccar_stack.sh
 /Users/mh/Documents/Playground/openclaw-apple-findmy-skill/scripts/install_geopulse_stack.sh
 ```
 
-Install/update the optional Traccar local web UI and hourly bridge:
+## Dashboard URLs
 
-```bash
-/Users/mh/Documents/Playground/openclaw-apple-findmy-skill/scripts/install_traccar_stack.sh
+```text
+http://127.0.0.1:8765/findmysync  # local FindMySync receiver status
+http://127.0.0.1:18084            # OwnTracks
+http://127.0.0.1:18082            # Traccar
+http://127.0.0.1:18085            # GeoPulse
 ```
 
-## What It Covers
+Dashboard credentials are private local files:
 
-- Items and AirTags from `Items.data`
-- Devices from `Devices.data`
-- Family members from `FamilyMembers.data`
-- Friend cache metadata from `FriendCacheData.data`
-- FollowMyFriends local database table counts
-- macOS Contacts name, email, phone, and photo-presence enrichment for FollowMyFriends handles
-- Optional patched FindMySync.app posts to the local receiver for integration tests
-- Optional OwnTracks Recorder + Frontend displays local traces for people, devices, and items
-- Optional GeoPulse displays local traces for people, devices, and items through an OwnTracks HTTP source named `findmy`
-- Optional Traccar displays local traces as separate devices for people, devices, and items through the local OsmAnd endpoint
+```text
+/Users/mh/.openclaw/workspace/state/apple-find-my/traccar/login.env
+/Users/mh/.openclaw/workspace/state/apple-find-my/geopulse/login.env
+```
 
-## Required Local Files
+Do not print those files unless Martin explicitly asks for local login details.
+
+## Verify Bridges
+
+Run local bridge checks:
+
+```bash
+cd /Users/mh/Documents/Playground/openclaw-apple-findmy-skill
+
+/Users/mh/.openclaw/workspace/.venvs/findmy-key-extractor/bin/python \
+  scripts/owntracks_findmy_bridge.py --print-summary
+/Users/mh/.openclaw/workspace/.venvs/findmy-key-extractor/bin/python \
+  scripts/traccar_findmy_bridge.py --print-summary
+/Users/mh/.openclaw/workspace/.venvs/findmy-key-extractor/bin/python \
+  scripts/geopulse_findmy_bridge.py --print-summary
+```
+
+Expected:
+
+```text
+points_seen/tracks = 34
+errors = []
+```
+
+Verify Traccar/GeoPulse counts through APIs without printing coordinates:
+
+```bash
+curl -sS 'http://127.0.0.1:18085/api/gps?limit=100' -b /tmp/geopulse.cookies \
+  | jq '.data.pagination.total'
+
+curl -sS http://127.0.0.1:18082/api/devices -b /tmp/traccar.cookies | jq 'length'
+curl -sS http://127.0.0.1:18082/api/positions -b /tmp/traccar.cookies | jq 'length'
+```
+
+## Autostart
+
+Current hourly LaunchAgents:
+
+```text
+ai.openclaw.findmy.export
+ai.openclaw.findmy.owntracks-bridge
+ai.openclaw.findmy.traccar-bridge
+ai.openclaw.findmy.geopulse-bridge
+```
+
+Persistent/local-start jobs:
+
+```text
+ai.openclaw.findmysync.receiver
+ai.openclaw.findmysync.app
+ai.openclaw.findmy.owntracks-stack
+ai.openclaw.findmy.traccar-stack
+ai.openclaw.findmy.geopulse-stack
+```
+
+Inspect:
+
+```bash
+launchctl print gui/$(id -u)/ai.openclaw.findmy.export
+```
+
+## Required Private Files
 
 Keys are expected at:
 
-- `/Users/mh/.openclaw/workspace/skills/apple-find-my/vendor/findmy-key-extractor/keys/LocalStorage.key`
-- `/Users/mh/.openclaw/workspace/skills/apple-find-my/vendor/findmy-key-extractor/keys/FMIPDataManager.bplist`
-- `/Users/mh/.openclaw/workspace/skills/apple-find-my/vendor/findmy-key-extractor/keys/FMFDataManager.bplist`
+```text
+/Users/mh/.openclaw/workspace/skills/apple-find-my/vendor/findmy-key-extractor/keys/LocalStorage.key
+/Users/mh/.openclaw/workspace/skills/apple-find-my/vendor/findmy-key-extractor/keys/FMIPDataManager.bplist
+/Users/mh/.openclaw/workspace/skills/apple-find-my/vendor/findmy-key-extractor/keys/FMFDataManager.bplist
+```
 
-If the keys are missing, run the local key extraction flow from Martin's private
-OpenClaw skill. This public repo intentionally does not contain those files.
+If missing, pause and use Martin's private key extraction flow. Do not parse or
+publish raw encrypted cache files.
+
+## Documentation
+
+Repo:
+
+```text
+/Users/mh/Documents/Playground/openclaw-apple-findmy-skill
+```
+
+Read:
+
+```text
+README.md
+docs/SETUP.md
+docs/IMPLEMENTATION.md
+```

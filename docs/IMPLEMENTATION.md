@@ -2,7 +2,7 @@
 
 ## What Works
 
-The working local stack has four layers:
+The working local stack has these layers:
 
 1. `findmy-key-extractor` extracts local Find My keys once on Martin's Mac.
 2. `openclaw_findmy_export.py` uses those keys to decrypt local Find My caches.
@@ -61,10 +61,12 @@ and posting FindMySync-compatible events to:
 http://127.0.0.1:8765/findmysync
 ```
 
-Test result on 2026-05-15:
+Current verified local result on 2026-05-15:
 
-- 72 local POST events captured after repeated manual updates
-- 18 unique FindMySync IDs
+- 2678 local POST events captured after repeated manual/dashboard updates
+- 20 unique FindMySync IDs
+- the 20 IDs match the 9 devices + 11 items path
+- 0 IDs match FollowMyFriends people IDs
 - all captured events contained a GPS field
 - exact payloads remained only in the private local state directory
 
@@ -108,6 +110,12 @@ The trace store lives under:
 
 Do not publish this store. It contains exact private location history.
 
+Current verified count:
+
+```text
+34 tracks: 14 people, 9 devices, 11 items
+```
+
 ## Comparison Web UIs
 
 Local-only comparison UIs:
@@ -143,6 +151,14 @@ Current dashboard seed count is 34 tracks total: 14 people, 9 devices, and
 11 items. OwnTracks and Traccar keep them as separate entities. GeoPulse stores
 them as GPS rows in a user timeline, so it is useful as a timeline viewer but
 less useful as a multi-device tracker.
+
+Current verified dashboard counts:
+
+```text
+OwnTracks: 34 local records
+Traccar:   34 devices and 34 positions
+GeoPulse:  34 GPS rows
+```
 
 ## Contacts Enrichment
 

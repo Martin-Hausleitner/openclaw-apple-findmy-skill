@@ -42,6 +42,7 @@ cat /Users/mh/.openclaw/workspace/state/apple-find-my/export/latest-summary.json
 - Family members from `FamilyMembers.data`
 - Friend cache metadata from `FriendCacheData.data`
 - FollowMyFriends local database table counts
+- macOS Contacts name enrichment for FollowMyFriends handles
 
 ## Required Local Files
 

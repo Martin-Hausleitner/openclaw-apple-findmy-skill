@@ -42,6 +42,7 @@ FMF_DECRYPTED_DB = Path(
     "/Users/mh/.openclaw/workspace/state/apple-find-my/followmyfriends/LocalStorage_decrypted.sqlite"
 )
 STATE_DIR = Path("/Users/mh/.openclaw/workspace/state/apple-find-my/export")
+ADDRESSBOOK_ROOT = HOME / "Library/Application Support/AddressBook"
 
 
 def now_iso() -> str:
@@ -145,6 +146,158 @@ def anonymize_handle(value: Any) -> str | None:
     return f"handle_{digest}"
 
 
+def normalize_phone(value: str) -> str:
+    digits = "".join(ch for ch in value if ch.isdigit())
+    if value.strip().startswith("+"):
+        return "+" + digits
+    if digits.startswith("00"):
+        return "+" + digits[2:]
+    if digits.startswith("0") and len(digits) > 6:
+        # Martin's current contacts are mostly AT numbers; keep this as a
+        # conservative helper, while also indexing raw digits below.
+        return "+43" + digits[1:]
+    return digits
+
+
+def contact_display_name(row: sqlite3.Row) -> str | None:
+    parts = [
+        row["ZFIRSTNAME"],
+        row["ZMIDDLENAME"],
+        row["ZLASTNAME"],
+    ]
+    name = " ".join(str(part).strip() for part in parts if part)
+    if name:
+        return name
+    for key in ("ZNAME", "ZORGANIZATION", "ZNICKNAME"):
+        if row[key]:
+            return str(row[key]).strip()
+    return None
+
+
+def add_contact_index(index: dict[str, dict[str, Any]], key: str, contact: dict[str, Any]) -> None:
+    if key and key not in index:
+        index[key] = contact
+
+
+def load_contacts_index() -> tuple[dict[str, dict[str, Any]], dict[str, Any]]:
+    dbs = [ADDRESSBOOK_ROOT / "AddressBook-v22.abcddb"]
+    dbs.extend(ADDRESSBOOK_ROOT.glob("Sources/*/AddressBook-v22.abcddb"))
+    index: dict[str, dict[str, Any]] = {}
+    stats = {"databases": 0, "contacts_indexed": 0, "emails_indexed": 0, "phones_indexed": 0}
+
+    for db in dbs:
+        if not db.exists():
+            continue
+        stats["databases"] += 1
+        con = sqlite3.connect(str(db))
+        con.row_factory = sqlite3.Row
+        try:
+            people = {
+                row["Z_PK"]: row
+                for row in con.execute(
+                    """
+                    select Z_PK, ZUNIQUEID, ZFIRSTNAME, ZMIDDLENAME, ZLASTNAME,
+                           ZNAME, ZORGANIZATION, ZNICKNAME
+                    from ZABCDRECORD
+                    """
+                )
+            }
+            stats["contacts_indexed"] += len(people)
+            for row in con.execute(
+                "select ZOWNER, ZADDRESS, ZADDRESSNORMALIZED from ZABCDEMAILADDRESS"
+            ):
+                person = people.get(row["ZOWNER"])
+                if not person:
+                    continue
+                display = contact_display_name(person)
+                if not display:
+                    continue
+                contact = {
+                    "display_name": display,
+                    "full_name": display,
+                    "given_name": person["ZFIRSTNAME"],
+                    "family_name": person["ZLASTNAME"],
+                    "contact_unique_id": person["ZUNIQUEID"],
+                    "match_type": "email",
+                }
+                for value in (row["ZADDRESS"], row["ZADDRESSNORMALIZED"]):
+                    if value:
+                        add_contact_index(index, str(value).strip().lower(), contact)
+                        stats["emails_indexed"] += 1
+            for row in con.execute("select ZOWNER, ZFULLNUMBER, ZLOCALNUMBER from ZABCDPHONENUMBER"):
+                person = people.get(row["ZOWNER"])
+                if not person:
+                    continue
+                display = contact_display_name(person)
+                if not display:
+                    continue
+                contact = {
+                    "display_name": display,
+                    "full_name": display,
+                    "given_name": person["ZFIRSTNAME"],
+                    "family_name": person["ZLASTNAME"],
+                    "contact_unique_id": person["ZUNIQUEID"],
+                    "match_type": "phone",
+                }
+                for value in (row["ZFULLNUMBER"], row["ZLOCALNUMBER"]):
+                    if not value:
+                        continue
+                    raw = str(value).strip()
+                    for key in {raw, normalize_phone(raw), "".join(ch for ch in raw if ch.isdigit())}:
+                        add_contact_index(index, key, contact)
+                    stats["phones_indexed"] += 1
+        finally:
+            con.close()
+    return index, stats
+
+
+def lookup_contact(handle: str, index: dict[str, dict[str, Any]]) -> dict[str, Any] | None:
+    raw = handle.strip()
+    keys = [raw, raw.lower()]
+    if "@" not in raw:
+        keys.extend([normalize_phone(raw), "".join(ch for ch in raw if ch.isdigit())])
+    for key in keys:
+        if key in index:
+            return dict(index[key])
+    return None
+
+
+def followmyfriends_people(db_path: Path, contacts: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
+    if not db_path.exists():
+        return []
+    con = sqlite3.connect(str(db_path))
+    con.row_factory = sqlite3.Row
+    try:
+        rows = []
+        for row in con.execute(
+            """
+            select handleIdentifier, handleQualifiedID, handlePrettyName,
+                   ownerHandlePrettyName, handleContactIdentifier
+            from friends
+            order by handleIdentifier
+            """
+        ):
+            handle = row["handleIdentifier"]
+            contact = lookup_contact(handle, contacts) if handle else None
+            display = row["handlePrettyName"] or (contact or {}).get("display_name")
+            rows.append(
+                {
+                    "handle": handle,
+                    "display_name": display or handle,
+                    "full_name": (contact or {}).get("full_name") or display or handle,
+                    "given_name": (contact or {}).get("given_name"),
+                    "family_name": (contact or {}).get("family_name"),
+                    "contact_unique_id": (contact or {}).get("contact_unique_id"),
+                    "match_type": (contact or {}).get("match_type") or "handle",
+                    "has_contact_match": bool(contact),
+                    "handle_contact_identifier": row["handleContactIdentifier"],
+                }
+            )
+        return rows
+    finally:
+        con.close()
+
+
 def summarize_friends_cache(cache: Any) -> dict[str, Any]:
     summary: dict[str, Any] = {"type": type(cache).__name__}
     if not isinstance(cache, dict):
@@ -231,6 +384,7 @@ def export(args: argparse.Namespace) -> int:
 
     fmip_key = load_symmetric_key(KEY_DIR / "FMIPDataManager.bplist")
     fmf_key = load_symmetric_key(KEY_DIR / "FMFDataManager.bplist")
+    contacts, contacts_stats = load_contacts_index()
 
     exact: dict[str, Any] = {"generated_at": now_iso(), "source": "local_findmy_cache"}
     exact["items"] = decrypt_cache_file(FMIP_CACHE / "Items.data", fmip_key)
@@ -266,29 +420,31 @@ def export(args: argparse.Namespace) -> int:
         if isinstance(exact["devices"], list)
         else [],
         "friends_cache": summarize_friends_cache(exact.get("friends_cache")),
+        "contacts_index": contacts_stats,
     }
 
     private_exact = STATE_DIR / "private-exact.json"
     redacted_summary = STATE_DIR / "redacted-summary.json"
-    write_json(private_exact, exact, 0o600)
-    write_json(redacted_summary, summary, 0o644)
 
     if FMF_DECRYPTED_DB.exists():
         summary["followmyfriends_sqlite"] = sqlite_summary(FMF_DECRYPTED_DB)
-        write_json(redacted_summary, summary, 0o644)
+        people = followmyfriends_people(FMF_DECRYPTED_DB, contacts)
+        exact["followmyfriends_people_enriched"] = people
+        summary["followmyfriends_people"] = people
     elif FMF_LOCAL_DB.exists():
         copied = STATE_DIR / "followmyfriends-localstorage.sqlite"
         try:
             copy_sqlite_live(FMF_LOCAL_DB, copied)
             summary["followmyfriends_sqlite"] = sqlite_summary(copied)
-            write_json(redacted_summary, summary, 0o644)
         except sqlite3.DatabaseError as exc:
             summary["followmyfriends_sqlite"] = {
                 "exists": True,
                 "encrypted_or_unreadable": True,
                 "error": str(exc),
             }
-            write_json(redacted_summary, summary, 0o644)
+
+    write_json(private_exact, exact, 0o600)
+    write_json(redacted_summary, summary, 0o644)
 
     latest = STATE_DIR / "latest-summary.json"
     shutil.copy2(redacted_summary, latest)

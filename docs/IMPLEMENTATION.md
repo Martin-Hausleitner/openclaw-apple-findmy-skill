@@ -29,6 +29,7 @@ That file is intentionally private mode `0600`.
 - `FamilyMembers.data`: family members
 - `FriendCacheData.data`: friend metadata/cache
 - FollowMyFriends local SQLite: people/friend table counts
+- macOS Contacts: display/full-name enrichment for FollowMyFriends handles
 
 ## Why FindMySync.app Was Not Enough
 
@@ -39,6 +40,27 @@ Mac, the local cache files are encrypted, so direct JSON parsing of
 
 The working replacement is direct local decryption with the extracted
 `FMIPDataManager.bplist` and `FMFDataManager.bplist` keys.
+
+## Contacts Enrichment
+
+The exporter reads local Contacts databases from:
+
+```text
+~/Library/Application Support/AddressBook/AddressBook-v22.abcddb
+~/Library/Application Support/AddressBook/Sources/*/AddressBook-v22.abcddb
+```
+
+It indexes email addresses and normalized phone numbers, then enriches
+FollowMyFriends handles with:
+
+- `display_name`
+- `full_name`
+- `given_name`
+- `family_name`
+- `match_type`
+
+Handles without a matching local contact are preserved as the original
+phone/email handle.
 
 ## Autostart
 

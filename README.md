@@ -13,6 +13,7 @@ On Martin's Mac, the private setup currently exports:
 - 20 devices
 - 3 family members
 - 15 FollowMyFriends people tracked in the app
+- 7 of 15 FollowMyFriends handles enriched from local Contacts in the first run
 - 15 friend-cache entries
 - 2 item groups
 - 6 safe-location records
@@ -22,8 +23,9 @@ On Martin's Mac, the private setup currently exports:
 1. Apple Find My writes encrypted local caches.
 2. Martin extracts local keys once on his own Mac.
 3. `scripts/openclaw_findmy_export.py` decrypts the local caches on-device.
-4. Exact data is written only to a private local state file with mode `0600`.
-5. Agents read the redacted summary for normal answers.
+4. Local macOS Contacts are indexed for email/phone matching.
+5. Exact data is written only to a private local state file with mode `0600`.
+6. Agents read the redacted summary for normal answers.
 
 ## Local Paths
 

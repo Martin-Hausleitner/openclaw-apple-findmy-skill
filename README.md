@@ -56,9 +56,11 @@ For the optional FindMySync local receiver:
 
 ```bash
 scripts/install_findmysync_receiver_launchagent.sh
+scripts/install_findmysync_app_launchagent.sh
 ```
 
-This installs `ai.openclaw.findmysync.receiver`.
+This installs `ai.openclaw.findmysync.receiver` and
+`ai.openclaw.findmysync.app`.
 
 ## One-Shot Export
 

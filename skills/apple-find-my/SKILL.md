@@ -34,6 +34,7 @@ Install/update the optional FindMySync local receiver:
 
 ```bash
 /Users/mh/Documents/Playground/openclaw-apple-findmy-skill/scripts/install_findmysync_receiver_launchagent.sh
+/Users/mh/Documents/Playground/openclaw-apple-findmy-skill/scripts/install_findmysync_app_launchagent.sh
 ```
 
 Read the latest redacted status:

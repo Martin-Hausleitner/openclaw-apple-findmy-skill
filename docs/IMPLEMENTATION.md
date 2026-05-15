@@ -7,8 +7,9 @@ The working local stack has four layers:
 1. `findmy-key-extractor` extracts local Find My keys once on Martin's Mac.
 2. `openclaw_findmy_export.py` uses those keys to decrypt local Find My caches.
 3. LaunchAgent `ai.openclaw.findmy.export` refreshes the redacted summary every 5 minutes.
-4. Optional LaunchAgent `ai.openclaw.findmysync.receiver` receives local
-   FindMySync-style POSTs for dashboards and integration tests.
+4. Optional LaunchAgents `ai.openclaw.findmysync.receiver` and
+   `ai.openclaw.findmysync.app` receive local FindMySync-style POSTs and start
+   the sender app at login.
 
 Normal agents should read:
 
@@ -114,12 +115,14 @@ FindMySync receiver install:
 
 ```bash
 scripts/install_findmysync_receiver_launchagent.sh
+scripts/install_findmysync_app_launchagent.sh
 ```
 
 Inspect:
 
 ```bash
 launchctl print gui/$(id -u)/ai.openclaw.findmysync.receiver
+launchctl print gui/$(id -u)/ai.openclaw.findmysync.app
 ```
 
 Receiver UI:

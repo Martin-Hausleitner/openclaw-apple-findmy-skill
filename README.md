@@ -20,9 +20,11 @@ On Martin's Mac, the private setup currently exports:
 - 6 safe-location records
 - FindMySync local receiver tested with 20 unique FindMySync IDs
 - OwnTracks local web viewer receives Find My people/devices/items traces;
-  current seed sent 34 local points into 31 unique visible tracks
+  current seed sent 34 local points into 34 unique visible tracks
 - GeoPulse local web UI receives the same bridge data through an OwnTracks HTTP
-  source; current seed sent 34 local points into 29 stored GPS rows
+  source; current seed sent 34 local points into 34 stored GPS rows
+- Traccar local web UI receives the same bridge data as 34 devices and 34
+  positions, grouped as 14 people, 9 devices, and 11 items
 
 ## How It Works
 
@@ -38,6 +40,8 @@ On Martin's Mac, the private setup currently exports:
    private map traces at `http://127.0.0.1:18084`.
 9. Optional: GeoPulse visualizes the same local bridge data at
    `http://127.0.0.1:18085`.
+10. Optional: Traccar visualizes the same local bridge data as separate devices
+    at `http://127.0.0.1:18082`.
 
 ## Local Paths
 
@@ -109,7 +113,12 @@ password and the local UI login stay in Martin's private state files:
 /Users/mh/.openclaw/workspace/state/apple-find-my/geopulse/login.env
 ```
 
-Traccar is installed for side-by-side UI evaluation but is not fed by default.
+Traccar is fed by `ai.openclaw.findmy.traccar-bridge`, also hourly, and stores
+its local UI login in:
+
+```text
+/Users/mh/.openclaw/workspace/state/apple-find-my/traccar/login.env
+```
 
 ## One-Shot Export
 
@@ -172,6 +181,25 @@ locally under:
 
 Do not publish this state folder. It contains credentials, exact private
 location history, and the GeoPulse database.
+
+## Traccar Local Web UI
+
+The Traccar UI is local only:
+
+```text
+http://127.0.0.1:18082
+```
+
+The bridge creates one Traccar device per Find My track and sends positions
+through Traccar's local OsmAnd endpoint on `127.0.0.1:15055`. Current and
+future Traccar state is stored locally under:
+
+```text
+/Users/mh/.openclaw/workspace/state/apple-find-my/traccar
+```
+
+Do not publish this state folder. It contains credentials and exact private
+location history.
 
 ## Security Reset After Key Extraction
 

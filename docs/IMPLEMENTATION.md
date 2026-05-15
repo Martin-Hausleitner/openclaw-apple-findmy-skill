@@ -119,6 +119,7 @@ Local-only comparison UIs:
 Autostart LaunchAgents:
 
 - `ai.openclaw.findmy.traccar-stack`
+- `ai.openclaw.findmy.traccar-bridge`
 - `ai.openclaw.findmy.geopulse-stack`
 - `ai.openclaw.findmy.geopulse-bridge`
 
@@ -131,8 +132,17 @@ OwnTracks is fed by `owntracks_findmy_bridge.py`. GeoPulse is fed by
 /Users/mh/.openclaw/workspace/state/apple-find-my/geopulse/login.env
 ```
 
-Traccar is installed for UI comparison and can be connected later if selected
-as the final dashboard.
+Traccar is fed by `traccar_findmy_bridge.py` through the local OsmAnd endpoint
+at `127.0.0.1:15055`; the private local UI login lives in:
+
+```text
+/Users/mh/.openclaw/workspace/state/apple-find-my/traccar/login.env
+```
+
+Current dashboard seed count is 34 tracks total: 14 people, 9 devices, and
+11 items. OwnTracks and Traccar keep them as separate entities. GeoPulse stores
+them as GPS rows in a user timeline, so it is useful as a timeline viewer but
+less useful as a multi-device tracker.
 
 ## Contacts Enrichment
 

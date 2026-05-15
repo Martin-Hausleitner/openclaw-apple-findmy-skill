@@ -112,7 +112,7 @@ def make_payload(name: str, loc: dict[str, Any], category: str, device: str, use
     return payload
 
 
-def iter_points(data: dict[str, Any], username: str) -> list[tuple[str, str, dict[str, Any]]]:
+def iter_points(data: dict[str, Any], username: str, preserve_duplicates: bool = True) -> list[tuple[str, str, dict[str, Any]]]:
     points: list[tuple[str, str, dict[str, Any]]] = []
 
     for person in data.get("followmyfriends_people_enriched") or []:
@@ -148,6 +148,32 @@ def iter_points(data: dict[str, Any], username: str) -> list[tuple[str, str, dic
         if payload:
             points.append(("items", device, payload))
 
+    seen_devices: dict[tuple[str, str], int] = {}
+    unique_points: list[tuple[str, str, dict[str, Any]]] = []
+    for category, device, payload in points:
+        key = (category, device)
+        count = seen_devices.get(key, 0) + 1
+        seen_devices[key] = count
+        if count > 1:
+            device = f"{device[:45]}-{count}"
+            payload["device"] = device
+            payload["topic"] = f"owntracks/{username}/{device}"
+        unique_points.append((category, device, payload))
+
+    points = unique_points
+
+    if preserve_duplicates:
+        seen: dict[tuple[float, float, int], int] = {}
+        for _category, _device, payload in points:
+            key = (round(float(payload["lat"]), 8), round(float(payload["lon"]), 8), int(payload["tst"]))
+            offset = seen.get(key, 0)
+            seen[key] = offset + 1
+            if offset:
+                # GeoPulse stores a user timeline and collapses identical
+                # coordinate+timestamp rows. A tiny offset keeps separate
+                # Find My entities visible without changing the place.
+                payload["tst"] = int(payload["tst"]) + offset
+
     return points
 
 
@@ -173,6 +199,7 @@ def main() -> int:
     parser.add_argument("--endpoint", default=env_value("GEOPULSE_OWNTRACKS_ENDPOINT", DEFAULT_ENDPOINT))
     parser.add_argument("--username", default=env_value("GEOPULSE_OWNTRACKS_USERNAME", "findmy"))
     parser.add_argument("--password", default=env_value("GEOPULSE_OWNTRACKS_PASSWORD"))
+    parser.add_argument("--no-preserve-duplicates", action="store_true")
     parser.add_argument("--print-summary", action="store_true")
     args = parser.parse_args()
 
@@ -182,7 +209,7 @@ def main() -> int:
 
     STATE_DIR.mkdir(parents=True, exist_ok=True)
     data = load_export()
-    points = iter_points(data, args.username)
+    points = iter_points(data, args.username, preserve_duplicates=not args.no_preserve_duplicates)
     sent = 0
     errors: list[str] = []
     per_category = {"people": 0, "devices": 0, "items": 0}

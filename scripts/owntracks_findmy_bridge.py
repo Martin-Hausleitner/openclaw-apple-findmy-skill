@@ -125,7 +125,17 @@ def iter_points(data: dict[str, Any]) -> list[tuple[str, str, dict[str, Any]]]:
         if payload:
             points.append(("items", stable_slug(name, unique, "item"), payload))
 
-    return points
+    seen: dict[tuple[str, str], int] = {}
+    unique_points: list[tuple[str, str, dict[str, Any]]] = []
+    for user, device, payload in points:
+        key = (user, device)
+        count = seen.get(key, 0) + 1
+        seen[key] = count
+        if count > 1:
+            device = f"{device[:45]}-{count}"
+        unique_points.append((user, device, payload))
+
+    return unique_points
 
 
 def post_point(endpoint: str, user: str, device: str, payload: dict[str, Any]) -> None:

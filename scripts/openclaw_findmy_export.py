@@ -111,11 +111,18 @@ def redacted_rows(rows: list[dict[str, Any]], limit: int = 40) -> list[dict[str,
             or row.get("identifier")
             or row.get("baUUID")
         )
+        product_type = row.get("productType")
+        if isinstance(product_type, dict):
+            kind = product_type.get("type") or product_type.get("productInformation", {}).get(
+                "productIdentifier"
+            )
+        else:
+            kind = product_type or row.get("deviceClass")
         loc = row.get("location") if isinstance(row.get("location"), dict) else {}
         out.append(
             {
                 "label": str(label)[:120] if label is not None else None,
-                "kind": str(row.get("productType") or row.get("deviceClass") or "")[:80],
+                "kind": str(kind or "")[:80],
                 "has_location": bool(loc),
                 "coarse_place": coarse_address(row),
                 "battery_present": any(

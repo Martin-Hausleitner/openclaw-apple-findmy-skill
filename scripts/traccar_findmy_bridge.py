@@ -135,16 +135,14 @@ def iter_points(data: dict[str, Any]) -> list[dict[str, Any]]:
             unique = item.get("identifier") or item.get("id") or item.get("serialNumber") or name
             add("items", name, unique, loc)
 
-    seen: dict[str, int] = {}
+    merged: dict[str, dict[str, Any]] = {}
     for point in points:
         unique_id = point["uniqueId"]
-        count = seen.get(unique_id, 0) + 1
-        seen[unique_id] = count
-        if count > 1:
-            point["uniqueId"] = f"{unique_id[:116]}-{count}"
-            point["name"] = f"{point['name']} #{count}"
+        existing = merged.get(unique_id)
+        if existing is None or point["timestamp"] >= existing["timestamp"]:
+            merged[unique_id] = point
 
-    return points
+    return list(merged.values())
 
 
 def login(client: Client, env: dict[str, str]) -> None:

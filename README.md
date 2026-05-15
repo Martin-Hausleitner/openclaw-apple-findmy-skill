@@ -24,7 +24,7 @@ Dashboard output is currently verified as:
 | Dashboard | URL | Verified Count |
 |---|---|---:|
 | OwnTracks | `http://127.0.0.1:18084` | 34 tracks |
-| Traccar | `http://127.0.0.1:18082` | 34 devices / positions |
+| Traccar | `http://127.0.0.1:18082` | 31 merged devices / positions |
 | GeoPulse | `http://127.0.0.1:18085` | 34 GPS rows |
 
 ## Architecture
@@ -57,7 +57,7 @@ The current design uses existing tools where they are strongest:
 scripts/
   openclaw_findmy_export.py       # local decrypt + normalized export
   owntracks_findmy_bridge.py      # publish 34 tracks to OwnTracks
-  traccar_findmy_bridge.py        # publish 34 tracks to Traccar
+  traccar_findmy_bridge.py        # publish merged tracks to Traccar
   geopulse_findmy_bridge.py       # publish 34 points to GeoPulse
   *_bootstrap_local.py            # create local dashboard users/sources
   install_*.sh                    # LaunchAgent / local stack installers
@@ -100,30 +100,30 @@ Short version:
 ```bash
 cd /Users/mh/Documents/Playground/openclaw-apple-findmy-skill
 
-# Core hourly export
+# Core 10-minute export
 scripts/install_launchagent.sh
 
 # Optional existing-tool receiver/sender path
 scripts/install_findmysync_receiver_launchagent.sh
 scripts/install_findmysync_app_launchagent.sh
 
-# Optional dashboards and hourly bridges
+# Optional dashboards and 10-minute bridges
 scripts/install_owntracks_stack.sh
 scripts/install_traccar_stack.sh
 scripts/install_geopulse_stack.sh
 ```
 
-All recurring jobs are installed as macOS LaunchAgents and currently run hourly
+All recurring jobs are installed as macOS LaunchAgents and currently run every 10 minutes
 where polling is involved.
 
 ## Current Autostart Jobs
 
 | LaunchAgent | Purpose | Interval |
 |---|---|---:|
-| `ai.openclaw.findmy.export` | refresh local normalized export | 60 min |
-| `ai.openclaw.findmy.owntracks-bridge` | send export to OwnTracks | 60 min |
-| `ai.openclaw.findmy.traccar-bridge` | send export to Traccar | 60 min |
-| `ai.openclaw.findmy.geopulse-bridge` | send export to GeoPulse | 60 min |
+| `ai.openclaw.findmy.export` | refresh local normalized export | 10 min |
+| `ai.openclaw.findmy.owntracks-bridge` | send export to OwnTracks | 10 min |
+| `ai.openclaw.findmy.traccar-bridge` | send merged export to Traccar | 10 min |
+| `ai.openclaw.findmy.geopulse-bridge` | send export to GeoPulse | 10 min |
 | `ai.openclaw.findmysync.receiver` | receive local FindMySync-style posts | always on |
 | `ai.openclaw.findmysync.app` | start FindMySync app at login | login |
 
@@ -159,14 +159,15 @@ Check the dashboard bridges:
 Expected current bridge count:
 
 ```text
-34 tracks = 14 people + 9 devices + 11 items
+OwnTracks/GeoPulse: 34 tracks = 14 people + 9 devices + 11 items
+Traccar: 31 merged tracks after duplicate Find My IDs are collapsed
 ```
 
 ## Dashboard Notes
 
 - **OwnTracks** is the lightest local map and keeps separate tracks.
-- **Traccar** is the strongest multi-device dashboard and keeps separate
-  devices/positions.
+- **Traccar** is the strongest multi-device dashboard and merges duplicate
+  Find My IDs into one device/position track.
 - **GeoPulse** is a nicer timeline/GPS-data UI, but it is less ideal for
   multi-device identity because it stores a user timeline.
 
@@ -188,6 +189,6 @@ Dashboard credentials are generated/stored only in private local state files:
 
 ## Recommended Operating Mode
 
-Keep the core exporter and dashboard bridges hourly. Keep FindMySync as a
+Keep the core exporter and dashboard bridges at 10-minute intervals. Keep FindMySync as a
 fallback/control path if desired, but use the OpenClaw normalized export as the
 main source for Hermes/OpenClaw and dashboards.

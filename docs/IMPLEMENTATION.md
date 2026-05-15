@@ -6,13 +6,13 @@ The working local stack has these layers:
 
 1. `findmy-key-extractor` extracts local Find My keys once on Martin's Mac.
 2. `openclaw_findmy_export.py` uses those keys to decrypt local Find My caches.
-3. LaunchAgent `ai.openclaw.findmy.export` refreshes the redacted summary every 60 minutes.
+3. LaunchAgent `ai.openclaw.findmy.export` refreshes the redacted summary every 10 minutes.
 4. Optional LaunchAgents `ai.openclaw.findmysync.receiver` and
    `ai.openclaw.findmysync.app` receive local FindMySync-style POSTs and start
    the sender app at login.
 5. Optional LaunchAgents `ai.openclaw.findmy.owntracks-stack` and
    `ai.openclaw.findmy.owntracks-bridge` start the local OwnTracks web map and
-   publish people/devices/items from the private exact export every 60 minutes.
+   publish people/devices/items from the private exact export every 10 minutes.
 6. Optional comparison stacks run Traccar and GeoPulse as local-only web UIs.
 
 Normal agents should read:
@@ -147,16 +147,17 @@ at `127.0.0.1:15055`; the private local UI login lives in:
 /Users/mh/.openclaw/workspace/state/apple-find-my/traccar/login.env
 ```
 
-Current dashboard seed count is 34 tracks total: 14 people, 9 devices, and
-11 items. OwnTracks and Traccar keep them as separate entities. GeoPulse stores
-them as GPS rows in a user timeline, so it is useful as a timeline viewer but
-less useful as a multi-device tracker.
+Current dashboard seed count is 34 source tracks total: 14 people, 9 devices,
+and 11 items. OwnTracks keeps them as separate entities. Traccar collapses
+duplicate Find My IDs into merged device tracks. GeoPulse stores them as GPS
+rows in a user timeline, so it is useful as a timeline viewer but less useful
+as a multi-device tracker.
 
 Current verified dashboard counts:
 
 ```text
 OwnTracks: 34 local records
-Traccar:   34 devices and 34 positions
+Traccar:   31 merged devices and positions
 GeoPulse:  34 GPS rows
 ```
 

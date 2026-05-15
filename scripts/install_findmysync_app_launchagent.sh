@@ -4,8 +4,10 @@ set -euo pipefail
 LABEL="ai.openclaw.findmysync.app"
 PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
 STATE="/Users/mh/.openclaw/workspace/state/apple-find-my/findmysync"
+LAUNCHER="/Users/mh/Documents/Playground/openclaw-apple-findmy-skill/scripts/launch_findmysync_hidden.sh"
 
 mkdir -p "$HOME/Library/LaunchAgents" "$STATE"
+chmod +x "$LAUNCHER"
 
 cat > "$PLIST" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -17,9 +19,7 @@ cat > "$PLIST" <<PLIST
   <string>$LABEL</string>
   <key>ProgramArguments</key>
   <array>
-    <string>/usr/bin/open</string>
-    <string>-gj</string>
-    <string>/Applications/FindMySync.app</string>
+    <string>$LAUNCHER</string>
   </array>
   <key>RunAtLoad</key>
   <true/>

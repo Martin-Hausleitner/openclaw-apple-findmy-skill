@@ -35,7 +35,7 @@ This installs:
 ai.openclaw.findmy.export
 ```
 
-It runs every 60 minutes and writes:
+It runs every 10 minutes and writes:
 
 ```text
 /Users/mh/.openclaw/workspace/state/apple-find-my/export/latest-summary.json
@@ -163,7 +163,8 @@ Bridges:
 Expected current count:
 
 ```text
-34 tracks: 14 people, 9 devices, 11 items
+OwnTracks/GeoPulse: 34 tracks: 14 people, 9 devices, 11 items
+Traccar: 31 merged tracks after duplicate Find My IDs are collapsed
 ```
 
 ## Verify Autostart

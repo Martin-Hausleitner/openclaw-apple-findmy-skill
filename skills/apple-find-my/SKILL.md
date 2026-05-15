@@ -43,6 +43,9 @@ Current verified shape:
 34 tracks = 14 people + 9 devices + 11 items
 ```
 
+Traccar currently stores 31 merged dashboard devices because duplicate Find My
+IDs are collapsed before publishing to Traccar.
+
 FindMySync does **not** provide people in the current local setup. FollowMyFriends
 does **not** provide AirTags/items as its primary data source.
 
@@ -56,7 +59,7 @@ Run a one-shot export:
   --print-summary
 ```
 
-Install or refresh the hourly core export:
+Install or refresh the 10-minute core export:
 
 ```bash
 /Users/mh/Documents/Playground/openclaw-apple-findmy-skill/scripts/install_launchagent.sh
@@ -129,7 +132,7 @@ curl -sS http://127.0.0.1:18082/api/positions -b /tmp/traccar.cookies | jq 'leng
 
 ## Autostart
 
-Current hourly LaunchAgents:
+Current 10-minute LaunchAgents:
 
 ```text
 ai.openclaw.findmy.export

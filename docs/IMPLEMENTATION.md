@@ -32,7 +32,8 @@ That file is intentionally private mode `0600`.
 - `FamilyMembers.data`: family members
 - `FriendCacheData.data`: friend metadata/cache
 - FollowMyFriends local SQLite: people/friend table counts
-- macOS Contacts: display/full-name enrichment for FollowMyFriends handles
+- macOS Contacts: display/full-name, email, phone, and photo-presence enrichment
+  for FollowMyFriends handles
 
 ## FindMySync.app Status
 

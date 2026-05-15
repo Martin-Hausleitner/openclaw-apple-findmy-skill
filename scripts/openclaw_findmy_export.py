@@ -174,6 +174,27 @@ def contact_display_name(row: sqlite3.Row) -> str | None:
     return None
 
 
+def contact_base(row: sqlite3.Row) -> dict[str, Any] | None:
+    display = contact_display_name(row)
+    if not display:
+        return None
+    photo_blob = row["ZTHUMBNAILIMAGEDATA"] or row["ZIMAGEDATA"]
+    photo_sha = hashlib.sha256(photo_blob).hexdigest() if photo_blob else None
+    return {
+        "display_name": display,
+        "full_name": display,
+        "given_name": row["ZFIRSTNAME"],
+        "family_name": row["ZLASTNAME"],
+        "contact_unique_id": row["ZUNIQUEID"],
+        "emails": [],
+        "phones": [],
+        "has_photo": bool(photo_blob or row["ZIMAGEREFERENCE"] or row["ZEXTERNALIMAGEURI"]),
+        "photo_sha256": photo_sha,
+        "photo_bytes": len(photo_blob) if photo_blob else 0,
+        "photo_reference_present": bool(row["ZIMAGEREFERENCE"] or row["ZEXTERNALIMAGEURI"]),
+    }
+
+
 def add_contact_index(index: dict[str, dict[str, Any]], key: str, contact: dict[str, Any]) -> None:
     if key and key not in index:
         index[key] = contact
@@ -192,60 +213,57 @@ def load_contacts_index() -> tuple[dict[str, dict[str, Any]], dict[str, Any]]:
         con = sqlite3.connect(str(db))
         con.row_factory = sqlite3.Row
         try:
-            people = {
-                row["Z_PK"]: row
-                for row in con.execute(
-                    """
-                    select Z_PK, ZUNIQUEID, ZFIRSTNAME, ZMIDDLENAME, ZLASTNAME,
-                           ZNAME, ZORGANIZATION, ZNICKNAME
-                    from ZABCDRECORD
-                    """
-                )
-            }
+            people = {}
+            contacts_by_pk: dict[int, dict[str, Any]] = {}
+            for row in con.execute(
+                """
+                select Z_PK, ZUNIQUEID, ZFIRSTNAME, ZMIDDLENAME, ZLASTNAME,
+                       ZNAME, ZORGANIZATION, ZNICKNAME, ZIMAGEREFERENCE,
+                       ZEXTERNALIMAGEURI, ZIMAGEDATA, ZTHUMBNAILIMAGEDATA
+                from ZABCDRECORD
+                """
+            ):
+                people[row["Z_PK"]] = row
+                contact = contact_base(row)
+                if contact:
+                    contacts_by_pk[row["Z_PK"]] = contact
             stats["contacts_indexed"] += len(people)
             for row in con.execute(
                 "select ZOWNER, ZADDRESS, ZADDRESSNORMALIZED from ZABCDEMAILADDRESS"
             ):
-                person = people.get(row["ZOWNER"])
-                if not person:
+                contact = contacts_by_pk.get(row["ZOWNER"])
+                if not contact:
                     continue
-                display = contact_display_name(person)
-                if not display:
-                    continue
-                contact = {
-                    "display_name": display,
-                    "full_name": display,
-                    "given_name": person["ZFIRSTNAME"],
-                    "family_name": person["ZLASTNAME"],
-                    "contact_unique_id": person["ZUNIQUEID"],
-                    "match_type": "email",
-                }
+                values = []
                 for value in (row["ZADDRESS"], row["ZADDRESSNORMALIZED"]):
                     if value:
-                        add_contact_index(index, str(value).strip().lower(), contact)
+                        normalized = str(value).strip().lower()
+                        values.append(normalized)
+                        indexed = dict(contact)
+                        indexed["match_type"] = "email"
+                        add_contact_index(index, normalized, indexed)
                         stats["emails_indexed"] += 1
+                for value in sorted(set(values)):
+                    if value not in contact["emails"]:
+                        contact["emails"].append(value)
             for row in con.execute("select ZOWNER, ZFULLNUMBER, ZLOCALNUMBER from ZABCDPHONENUMBER"):
-                person = people.get(row["ZOWNER"])
-                if not person:
+                contact = contacts_by_pk.get(row["ZOWNER"])
+                if not contact:
                     continue
-                display = contact_display_name(person)
-                if not display:
-                    continue
-                contact = {
-                    "display_name": display,
-                    "full_name": display,
-                    "given_name": person["ZFIRSTNAME"],
-                    "family_name": person["ZLASTNAME"],
-                    "contact_unique_id": person["ZUNIQUEID"],
-                    "match_type": "phone",
-                }
+                display_values = []
                 for value in (row["ZFULLNUMBER"], row["ZLOCALNUMBER"]):
                     if not value:
                         continue
                     raw = str(value).strip()
+                    display_values.append(raw)
                     for key in {raw, normalize_phone(raw), "".join(ch for ch in raw if ch.isdigit())}:
-                        add_contact_index(index, key, contact)
+                        indexed = dict(contact)
+                        indexed["match_type"] = "phone"
+                        add_contact_index(index, key, indexed)
                     stats["phones_indexed"] += 1
+                for value in sorted(set(display_values)):
+                    if value not in contact["phones"]:
+                        contact["phones"].append(value)
         finally:
             con.close()
     return index, stats
@@ -269,10 +287,11 @@ def followmyfriends_people(db_path: Path, contacts: dict[str, dict[str, Any]]) -
     con.row_factory = sqlite3.Row
     try:
         rows = []
+        locations = followmyfriends_secure_locations(con)
         for row in con.execute(
             """
             select handleIdentifier, handleQualifiedID, handlePrettyName,
-                   ownerHandlePrettyName, handleContactIdentifier
+                   ownerHandlePrettyName, handleContactIdentifier, handleServerIdentifier
             from friends
             order by handleIdentifier
             """
@@ -280,6 +299,7 @@ def followmyfriends_people(db_path: Path, contacts: dict[str, dict[str, Any]]) -
             handle = row["handleIdentifier"]
             contact = lookup_contact(handle, contacts) if handle else None
             display = row["handlePrettyName"] or (contact or {}).get("display_name")
+            location = locations.get(row["handleServerIdentifier"])
             rows.append(
                 {
                     "handle": handle,
@@ -287,15 +307,88 @@ def followmyfriends_people(db_path: Path, contacts: dict[str, dict[str, Any]]) -
                     "full_name": (contact or {}).get("full_name") or display or handle,
                     "given_name": (contact or {}).get("given_name"),
                     "family_name": (contact or {}).get("family_name"),
+                    "emails": (contact or {}).get("emails") or [],
+                    "phones": (contact or {}).get("phones") or [],
+                    "has_photo": bool((contact or {}).get("has_photo")),
+                    "photo_sha256": (contact or {}).get("photo_sha256"),
+                    "photo_bytes": (contact or {}).get("photo_bytes") or 0,
+                    "photo_reference_present": bool(
+                        (contact or {}).get("photo_reference_present")
+                    ),
                     "contact_unique_id": (contact or {}).get("contact_unique_id"),
                     "match_type": (contact or {}).get("match_type") or "handle",
                     "has_contact_match": bool(contact),
                     "handle_contact_identifier": row["handleContactIdentifier"],
+                    "handle_server_identifier": row["handleServerIdentifier"],
+                    "location": location,
+                    "has_location": bool(location),
+                    "location_timestamp": (location or {}).get("timestamp"),
+                    "location_label": (location or {}).get("locationLabel"),
+                    "horizontal_accuracy": (location or {}).get("horizontalAccuracy"),
                 }
             )
+        by_server: dict[str, dict[str, Any]] = {}
+        for person in rows:
+            server_id = person.get("handle_server_identifier")
+            if server_id and person.get("has_contact_match"):
+                by_server.setdefault(str(server_id), person)
+        for person in rows:
+            if person.get("has_contact_match"):
+                continue
+            server_id = person.get("handle_server_identifier")
+            matched = by_server.get(str(server_id)) if server_id else None
+            if not matched:
+                continue
+            for key in (
+                "display_name",
+                "full_name",
+                "given_name",
+                "family_name",
+                "emails",
+                "phones",
+                "has_photo",
+                "photo_sha256",
+                "photo_bytes",
+                "photo_reference_present",
+                "contact_unique_id",
+            ):
+                person[key] = matched.get(key)
+            person["match_type"] = "same_person_location"
+            person["has_contact_match"] = True
         return rows
     finally:
         con.close()
+
+
+def followmyfriends_secure_locations(con: sqlite3.Connection) -> dict[str, dict[str, Any]]:
+    locations: dict[str, dict[str, Any]] = {}
+    try:
+        rows = con.execute("select serverUserID, value from secureLocations")
+    except sqlite3.DatabaseError:
+        return locations
+    for row in rows:
+        try:
+            payload = plistlib.loads(row["value"])
+        except Exception:
+            continue
+        if not isinstance(payload, dict):
+            continue
+        key = str(row["serverUserID"])
+        locations[key] = {
+            "findMyId": payload.get("findMyId"),
+            "latitude": payload.get("latitude"),
+            "longitude": payload.get("longitude"),
+            "horizontalAccuracy": payload.get("horizontalAccuracy"),
+            "verticalAccuracy": payload.get("verticalAccuracy"),
+            "altitude": payload.get("altitude"),
+            "speed": payload.get("speed"),
+            "course": payload.get("course"),
+            "timestamp": payload.get("timestamp"),
+            "locationLabel": payload.get("locationLabel"),
+            "publishReason": payload.get("publishReason"),
+            "motionActivityState": payload.get("motionActivityState"),
+        }
+    return locations
 
 
 def summarize_friends_cache(cache: Any) -> dict[str, Any]:
@@ -430,7 +523,30 @@ def export(args: argparse.Namespace) -> int:
         summary["followmyfriends_sqlite"] = sqlite_summary(FMF_DECRYPTED_DB)
         people = followmyfriends_people(FMF_DECRYPTED_DB, contacts)
         exact["followmyfriends_people_enriched"] = people
-        summary["followmyfriends_people"] = people
+        summary["followmyfriends_people"] = [
+            {
+                key: person.get(key)
+                for key in (
+                    "display_name",
+                    "full_name",
+                    "given_name",
+                    "family_name",
+                    "emails",
+                    "phones",
+                    "has_photo",
+                    "photo_sha256",
+                    "photo_bytes",
+                    "photo_reference_present",
+                    "match_type",
+                    "has_contact_match",
+                    "has_location",
+                    "location_timestamp",
+                    "location_label",
+                    "horizontal_accuracy",
+                )
+            }
+            for person in people
+        ]
     elif FMF_LOCAL_DB.exists():
         copied = STATE_DIR / "followmyfriends-localstorage.sqlite"
         try:
@@ -451,7 +567,7 @@ def export(args: argparse.Namespace) -> int:
     latest.chmod(0o644)
 
     if args.print_summary:
-        print(json.dumps(summary, ensure_ascii=False, indent=2))
+        print(json.dumps(to_jsonable(summary), ensure_ascii=False, indent=2))
     else:
         print(f"Wrote {redacted_summary}")
     return 0

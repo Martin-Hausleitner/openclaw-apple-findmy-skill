@@ -13,7 +13,8 @@ On Martin's Mac, the private setup currently exports:
 - 20 devices
 - 3 family members
 - 15 FollowMyFriends people tracked in the app
-- 7 of 15 FollowMyFriends handles enriched from local Contacts in the first run
+- 9 of 15 FollowMyFriends handles enriched from local Contacts / same-person matching
+- Contact enrichment now includes matched emails, phone numbers, and photo presence
 - 15 friend-cache entries
 - 2 item groups
 - 6 safe-location records

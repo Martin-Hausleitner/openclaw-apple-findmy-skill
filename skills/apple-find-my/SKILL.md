@@ -56,7 +56,7 @@ http://127.0.0.1:8765/findmysync
 - Family members from `FamilyMembers.data`
 - Friend cache metadata from `FriendCacheData.data`
 - FollowMyFriends local database table counts
-- macOS Contacts name enrichment for FollowMyFriends handles
+- macOS Contacts name, email, phone, and photo-presence enrichment for FollowMyFriends handles
 - Optional patched FindMySync.app posts to the local receiver for integration tests
 
 ## Required Local Files

@@ -17,6 +17,7 @@ On Martin's Mac, the private setup currently exports:
 - 15 friend-cache entries
 - 2 item groups
 - 6 safe-location records
+- FindMySync local receiver tested with 18 unique FindMySync IDs
 
 ## How It Works
 
@@ -26,6 +27,8 @@ On Martin's Mac, the private setup currently exports:
 4. Local macOS Contacts are indexed for email/phone matching.
 5. Exact data is written only to a private local state file with mode `0600`.
 6. Agents read the redacted summary for normal answers.
+7. Optional: a patched local `FindMySync.app` sends FindMySync-compatible
+   events to a local-only receiver at `http://127.0.0.1:8765/findmysync`.
 
 ## Local Paths
 
@@ -49,11 +52,31 @@ scripts/install_launchagent.sh
 
 This installs `ai.openclaw.findmy.export`, running every 5 minutes.
 
+For the optional FindMySync local receiver:
+
+```bash
+scripts/install_findmysync_receiver_launchagent.sh
+```
+
+This installs `ai.openclaw.findmysync.receiver`.
+
 ## One-Shot Export
 
 ```bash
 /Users/mh/.openclaw/workspace/.venvs/findmy-key-extractor/bin/python scripts/openclaw_findmy_export.py --print-summary
 ```
+
+## FindMySync Local Test
+
+The receiver UI is local only:
+
+```text
+http://127.0.0.1:8765/findmysync
+```
+
+The working FindMySync variant reads the private exact export and posts
+FindMySync-compatible events to that endpoint. The receiver captures exact
+payloads only in Martin's private state directory and prints redacted summaries.
 
 ## Security Reset After Key Extraction
 

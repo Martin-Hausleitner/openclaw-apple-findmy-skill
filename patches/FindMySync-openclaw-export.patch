@@ -1,0 +1,152 @@
+diff --git a/FindMySync/Synchronizer.swift b/FindMySync/Synchronizer.swift
+index e9b42f6..4d3cdad 100644
+--- a/FindMySync/Synchronizer.swift
++++ b/FindMySync/Synchronizer.swift
+@@ -95,6 +95,22 @@ class Synchronizer {
+         var hasAccess = true
+         var haConfig = ""
+ 
++        if fetchOpenClawExport() {
++            retried = 0
++            let interval: String = UserDefaults.standard.string(forKey: "extra_interval")!
++            log("Scheduling next update after " + interval + " minutes")
++
++            if let currentTimer = timer {
++                currentTimer.invalidate()
++            }
++            self.timer = Timer.scheduledTimer(
++                withTimeInterval: TimeInterval(interval)! * 60, repeats: false
++            ) { t in
++                self.fetchData()
++            }
++            return
++        }
++
+         if #available(macOS 14.4, *) {
+             func getKeyData(from hexString: String) -> Data {
+                 let genaHexString = hexString.trimmingCharacters(in: .whitespacesAndNewlines)
+@@ -773,4 +789,124 @@ class Synchronizer {
+         task.resume()
+         session.finishTasksAndInvalidate()
+     }
++
++    func fetchOpenClawExport() -> Bool {
++        let exportUrl = URL(
++            fileURLWithPath:
++                "/Users/mh/.openclaw/workspace/state/apple-find-my/export/private-exact.json"
++        )
++
++        guard let data = try? Data(contentsOf: exportUrl) else {
++            log("OpenClaw export not found, falling back to built-in FindMySync readers")
++            return false
++        }
++
++        guard
++            let root = try? JSONSerialization.jsonObject(with: data, options: [])
++                as? [String: Any]
++        else {
++            log("OpenClaw export exists but could not be parsed")
++            return false
++        }
++
++        func stringValue(_ value: Any?) -> String? {
++            if let value = value as? String {
++                return value
++            }
++            if let value = value as? NSNumber {
++                return value.stringValue
++            }
++            return nil
++        }
++
++        func numberValue(_ value: Any?) -> NSNumber? {
++            if let value = value as? NSNumber {
++                return value
++            }
++            if let value = value as? String, let double = Double(value) {
++                return NSNumber(value: double)
++            }
++            return nil
++        }
++
++        func addressValue(_ item: [String: Any]) -> String {
++            guard let address = item["address"] as? [String: Any] else {
++                return ""
++            }
++            for key in [
++                "mapItemFullAddress", "label", "locality", "coarseAddressModern",
++                "administrativeArea", "country",
++            ] {
++                if let value = address[key] as? String, !value.isEmpty {
++                    return value
++                }
++            }
++            return ""
++        }
++
++        func batteryValue(_ item: [String: Any]) -> NSNumber {
++            if let value = numberValue(item["batteryLevel"]) {
++                return value
++            }
++            if let status = item["batteryStatus"] as? [String: Any],
++                let value = numberValue(status["batteryLevel"])
++            {
++                return value
++            }
++            return NSNumber(value: -1)
++        }
++
++        func sendRows(_ rows: [[String: Any]], source: String) -> Int {
++            var sent = 0
++            for item in rows {
++                guard let location = item["location"] as? [String: Any],
++                    let latitude = numberValue(location["latitude"]),
++                    let longitude = numberValue(location["longitude"])
++                else {
++                    continue
++                }
++
++                let accuracy =
++                    numberValue(location["horizontalAccuracy"])
++                    ?? numberValue(location["accuracy"])
++                    ?? NSNumber(value: 100)
++
++                let id =
++                    stringValue(item["identifier"])
++                    ?? stringValue(item["baUUID"])
++                    ?? stringValue(item["id"])
++                    ?? stringValue(item["name"])
++                    ?? UUID().uuidString
++
++                let name =
++                    stringValue(item["name"])
++                    ?? stringValue(item["deviceDisplayName"])
++                    ?? stringValue(item["deviceName"])
++                    ?? id
++
++                updateEntity(
++                    id: id,
++                    latitude: latitude,
++                    longitude: longitude,
++                    accuracy: accuracy,
++                    battery: batteryValue(item),
++                    address: addressValue(item)
++                )
++                log("- OpenClaw " + source + " \"" + name + "\" - " + id)
++                sent += 1
++            }
++            return sent
++        }
++
++        var sent = 0
++        if let items = root["items"] as? [[String: Any]] {
++            sent += sendRows(items, source: "item")
++        }
++        if let devices = root["devices"] as? [[String: Any]] {
++            sent += sendRows(devices, source: "device")
++        }
++
++        log("OpenClaw export sent \(sent) location update(s)")
++        return sent > 0
++    }
+ }

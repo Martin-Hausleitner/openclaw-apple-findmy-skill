@@ -14,6 +14,7 @@ keys have been extracted once on the same Mac.
 - Use `/Users/mh/.openclaw/workspace/state/apple-find-my/export/redacted-summary.json` for normal agent answers.
 - Use `/Users/mh/.openclaw/workspace/state/apple-find-my/export/private-exact.json` only when Martin explicitly asks for exact private data.
 - Do not commit or publish state files, keys, cache files, or decrypted databases.
+- For FindMySync tests, summarize counts from `/Users/mh/.openclaw/workspace/state/apple-find-my/findmysync/events.jsonl`; do not print raw GPS payloads.
 
 ## Commands
 
@@ -29,10 +30,22 @@ Install/update the every-5-minutes LaunchAgent:
 /Users/mh/Documents/Playground/openclaw-apple-findmy-skill/scripts/install_launchagent.sh
 ```
 
+Install/update the optional FindMySync local receiver:
+
+```bash
+/Users/mh/Documents/Playground/openclaw-apple-findmy-skill/scripts/install_findmysync_receiver_launchagent.sh
+```
+
 Read the latest redacted status:
 
 ```bash
 cat /Users/mh/.openclaw/workspace/state/apple-find-my/export/latest-summary.json
+```
+
+Open the local FindMySync receiver UI:
+
+```text
+http://127.0.0.1:8765/findmysync
 ```
 
 ## What It Covers
@@ -43,6 +56,7 @@ cat /Users/mh/.openclaw/workspace/state/apple-find-my/export/latest-summary.json
 - Friend cache metadata from `FriendCacheData.data`
 - FollowMyFriends local database table counts
 - macOS Contacts name enrichment for FollowMyFriends handles
+- Optional patched FindMySync.app posts to the local receiver for integration tests
 
 ## Required Local Files
 

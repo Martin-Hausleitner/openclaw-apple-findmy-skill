@@ -2,12 +2,20 @@
 set -euo pipefail
 
 LABEL="ai.openclaw.findmy.geopulse-stack"
+LABEL_BRIDGE="ai.openclaw.findmy.geopulse-bridge"
+ROOT="/Users/mh/Documents/Playground/openclaw-apple-findmy-skill"
 STATE="/Users/mh/.openclaw/workspace/state/apple-find-my/geopulse"
 LAUNCH="$HOME/Library/LaunchAgents"
 COMPOSE="$STATE/docker-compose.yml"
 ENV="$STATE/.env"
+BRIDGE_ENV="$STATE/bridge.env"
+PYTHON="/Users/mh/.openclaw/workspace/.venvs/findmy-key-extractor/bin/python"
+BRIDGE="$ROOT/scripts/geopulse_findmy_bridge.py"
+BOOTSTRAP="$ROOT/scripts/geopulse_bootstrap_local.py"
 
 mkdir -p "$STATE/keys" "$STATE/import-drop" "$LAUNCH"
+chmod +x "$BRIDGE"
+chmod +x "$BOOTSTRAP"
 
 if [[ ! -f "$ENV" ]]; then
   POSTGRES_PASSWORD="$(openssl rand -base64 24 | tr -d '\n')"
@@ -29,6 +37,16 @@ CLIENT_MAX_BODY_SIZE=1000M
 OSM_RESOLVER="127.0.0.11 8.8.8.8"
 ENV
   chmod 0600 "$ENV"
+fi
+
+if [[ ! -f "$BRIDGE_ENV" ]]; then
+  SOURCE_PASSWORD="$(openssl rand -base64 24 | tr -d '\n')"
+  cat > "$BRIDGE_ENV" <<ENV
+GEOPULSE_OWNTRACKS_ENDPOINT=http://127.0.0.1:18085/api/owntracks
+GEOPULSE_OWNTRACKS_USERNAME=findmy
+GEOPULSE_OWNTRACKS_PASSWORD=$SOURCE_PASSWORD
+ENV
+  chmod 0600 "$BRIDGE_ENV"
 fi
 
 cat > "$COMPOSE" <<'YAML'
@@ -151,4 +169,38 @@ plutil -lint "$LAUNCH/$LABEL.plist"
 launchctl bootout "gui/$(id -u)" "$LAUNCH/$LABEL.plist" >/dev/null 2>&1 || true
 launchctl bootstrap "gui/$(id -u)" "$LAUNCH/$LABEL.plist"
 launchctl kickstart -k "gui/$(id -u)/$LABEL"
+
+cat > "$LAUNCH/$LABEL_BRIDGE.plist" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>$LABEL_BRIDGE</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>$PYTHON</string>
+    <string>$BRIDGE</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>StartInterval</key>
+  <integer>3600</integer>
+  <key>StandardOutPath</key>
+  <string>$STATE/bridge-launch.stdout.log</string>
+  <key>StandardErrorPath</key>
+  <string>$STATE/bridge-launch.stderr.log</string>
+  <key>WorkingDirectory</key>
+  <string>$ROOT</string>
+</dict>
+</plist>
+PLIST
+
+plutil -lint "$LAUNCH/$LABEL_BRIDGE.plist"
+launchctl bootout "gui/$(id -u)" "$LAUNCH/$LABEL_BRIDGE.plist" >/dev/null 2>&1 || true
+launchctl bootstrap "gui/$(id -u)" "$LAUNCH/$LABEL_BRIDGE.plist"
+sleep 2
+"$PYTHON" "$BOOTSTRAP" --print-summary
+launchctl kickstart -k "gui/$(id -u)/$LABEL_BRIDGE"
 echo "GeoPulse UI: http://127.0.0.1:18085"

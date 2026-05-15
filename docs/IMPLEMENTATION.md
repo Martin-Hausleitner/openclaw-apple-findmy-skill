@@ -120,10 +120,19 @@ Autostart LaunchAgents:
 
 - `ai.openclaw.findmy.traccar-stack`
 - `ai.openclaw.findmy.geopulse-stack`
+- `ai.openclaw.findmy.geopulse-bridge`
 
-OwnTracks is currently the only one fed by `owntracks_findmy_bridge.py`.
-Traccar and GeoPulse are installed for UI comparison and can be connected later
-if selected as the final dashboard.
+OwnTracks is fed by `owntracks_findmy_bridge.py`. GeoPulse is fed by
+`geopulse_findmy_bridge.py` through a local OwnTracks HTTP source named
+`findmy`; the private source password and local UI login live in:
+
+```text
+/Users/mh/.openclaw/workspace/state/apple-find-my/geopulse/bridge.env
+/Users/mh/.openclaw/workspace/state/apple-find-my/geopulse/login.env
+```
+
+Traccar is installed for UI comparison and can be connected later if selected
+as the final dashboard.
 
 ## Contacts Enrichment
 

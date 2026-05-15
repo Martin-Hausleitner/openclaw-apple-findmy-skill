@@ -21,6 +21,8 @@ On Martin's Mac, the private setup currently exports:
 - FindMySync local receiver tested with 20 unique FindMySync IDs
 - OwnTracks local web viewer receives Find My people/devices/items traces;
   current seed sent 34 local points into 31 unique visible tracks
+- GeoPulse local web UI receives the same bridge data through an OwnTracks HTTP
+  source; current seed sent 34 local points into 29 stored GPS rows
 
 ## How It Works
 
@@ -34,6 +36,8 @@ On Martin's Mac, the private setup currently exports:
    events to a local-only receiver at `http://127.0.0.1:8765/findmysync`.
 8. Optional: OwnTracks Recorder + Frontend visualize the local exact export as
    private map traces at `http://127.0.0.1:18084`.
+9. Optional: GeoPulse visualizes the same local bridge data at
+   `http://127.0.0.1:18085`.
 
 ## Local Paths
 
@@ -96,8 +100,16 @@ This starts local-only web UIs:
 - Traccar: `http://127.0.0.1:18082`
 - GeoPulse: `http://127.0.0.1:18085`
 
-Only OwnTracks is currently fed by the local Find My bridge. Traccar and
-GeoPulse are installed for side-by-side UI evaluation.
+GeoPulse uses its own local OwnTracks HTTP source named `findmy`. Its bridge
+runs every 60 minutes through `ai.openclaw.findmy.geopulse-bridge`. The source
+password and the local UI login stay in Martin's private state files:
+
+```text
+/Users/mh/.openclaw/workspace/state/apple-find-my/geopulse/bridge.env
+/Users/mh/.openclaw/workspace/state/apple-find-my/geopulse/login.env
+```
+
+Traccar is installed for side-by-side UI evaluation but is not fed by default.
 
 ## One-Shot Export
 
@@ -140,6 +152,26 @@ locally under:
 ```
 
 Do not publish this store. It contains exact private location history.
+
+## GeoPulse Local Web UI
+
+The GeoPulse UI is local only:
+
+```text
+http://127.0.0.1:18085
+```
+
+The bridge converts the private exact export into OwnTracks-compatible HTTP
+events for `people`, `devices`, and `items`, then posts them to GeoPulse's
+local `/api/owntracks` endpoint. Current and future GeoPulse state is stored
+locally under:
+
+```text
+/Users/mh/.openclaw/workspace/state/apple-find-my/geopulse
+```
+
+Do not publish this state folder. It contains credentials, exact private
+location history, and the GeoPulse database.
 
 ## Security Reset After Key Extraction
 

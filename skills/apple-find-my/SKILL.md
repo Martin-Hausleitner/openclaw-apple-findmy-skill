@@ -16,6 +16,7 @@ keys have been extracted once on the same Mac.
 - Do not commit or publish state files, keys, cache files, or decrypted databases.
 - For FindMySync tests, summarize counts from `/Users/mh/.openclaw/workspace/state/apple-find-my/findmysync/events.jsonl`; do not print raw GPS payloads.
 - For OwnTracks web viewer checks, summarize counts from the local store under `/Users/mh/.openclaw/workspace/state/apple-find-my/owntracks`; do not print exact coordinates.
+- For GeoPulse web viewer checks, summarize `/api/gps/summary` and `/api/gps/source`; do not print raw GPS payloads or exact coordinates.
 
 ## Commands
 
@@ -71,6 +72,12 @@ http://127.0.0.1:18082  # Traccar
 http://127.0.0.1:18085  # GeoPulse
 ```
 
+Install/update the optional GeoPulse local web UI and hourly bridge:
+
+```bash
+/Users/mh/Documents/Playground/openclaw-apple-findmy-skill/scripts/install_geopulse_stack.sh
+```
+
 ## What It Covers
 
 - Items and AirTags from `Items.data`
@@ -81,6 +88,7 @@ http://127.0.0.1:18085  # GeoPulse
 - macOS Contacts name, email, phone, and photo-presence enrichment for FollowMyFriends handles
 - Optional patched FindMySync.app posts to the local receiver for integration tests
 - Optional OwnTracks Recorder + Frontend displays local traces for people, devices, and items
+- Optional GeoPulse displays local traces for people, devices, and items through an OwnTracks HTTP source named `findmy`
 
 ## Required Local Files
 

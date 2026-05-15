@@ -78,7 +78,7 @@ cat > "$LAUNCH/$LABEL_BRIDGE.plist" <<PLIST
   <key>RunAtLoad</key>
   <true/>
   <key>StartInterval</key>
-  <integer>300</integer>
+  <integer>3600</integer>
   <key>StandardOutPath</key>
   <string>$STATE/bridge-launch.stdout.log</string>
   <key>StandardErrorPath</key>

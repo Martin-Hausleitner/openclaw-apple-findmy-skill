@@ -24,7 +24,7 @@ cat > "$PLIST" <<PLIST
   <key>RunAtLoad</key>
   <true/>
   <key>StartInterval</key>
-  <integer>300</integer>
+  <integer>3600</integer>
   <key>StandardOutPath</key>
   <string>$STATE/launchagent.stdout.log</string>
   <key>StandardErrorPath</key>

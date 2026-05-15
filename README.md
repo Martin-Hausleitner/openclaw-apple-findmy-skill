@@ -55,7 +55,7 @@ Redacted summary:
 scripts/install_launchagent.sh
 ```
 
-This installs `ai.openclaw.findmy.export`, running every 5 minutes.
+This installs `ai.openclaw.findmy.export`, running every 60 minutes.
 
 For the optional FindMySync local receiver:
 
@@ -81,7 +81,23 @@ This starts:
 - LaunchAgent `ai.openclaw.findmy.owntracks-stack`
 - LaunchAgent `ai.openclaw.findmy.owntracks-bridge`
 
-The bridge runs every 5 minutes and posts only to the local recorder.
+The bridge runs every 60 minutes and posts only to the local recorder.
+
+For optional comparison web UIs:
+
+```bash
+scripts/install_traccar_stack.sh
+scripts/install_geopulse_stack.sh
+```
+
+This starts local-only web UIs:
+
+- OwnTracks: `http://127.0.0.1:18084`
+- Traccar: `http://127.0.0.1:18082`
+- GeoPulse: `http://127.0.0.1:18085`
+
+Only OwnTracks is currently fed by the local Find My bridge. Traccar and
+GeoPulse are installed for side-by-side UI evaluation.
 
 ## One-Shot Export
 

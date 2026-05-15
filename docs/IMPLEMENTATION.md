@@ -6,13 +6,14 @@ The working local stack has four layers:
 
 1. `findmy-key-extractor` extracts local Find My keys once on Martin's Mac.
 2. `openclaw_findmy_export.py` uses those keys to decrypt local Find My caches.
-3. LaunchAgent `ai.openclaw.findmy.export` refreshes the redacted summary every 5 minutes.
+3. LaunchAgent `ai.openclaw.findmy.export` refreshes the redacted summary every 60 minutes.
 4. Optional LaunchAgents `ai.openclaw.findmysync.receiver` and
    `ai.openclaw.findmysync.app` receive local FindMySync-style POSTs and start
    the sender app at login.
 5. Optional LaunchAgents `ai.openclaw.findmy.owntracks-stack` and
    `ai.openclaw.findmy.owntracks-bridge` start the local OwnTracks web map and
-   publish people/devices/items from the private exact export every 5 minutes.
+   publish people/devices/items from the private exact export every 60 minutes.
+6. Optional comparison stacks run Traccar and GeoPulse as local-only web UIs.
 
 Normal agents should read:
 
@@ -106,6 +107,23 @@ The trace store lives under:
 ```
 
 Do not publish this store. It contains exact private location history.
+
+## Comparison Web UIs
+
+Local-only comparison UIs:
+
+- OwnTracks: `http://127.0.0.1:18084`
+- Traccar: `http://127.0.0.1:18082`
+- GeoPulse: `http://127.0.0.1:18085`
+
+Autostart LaunchAgents:
+
+- `ai.openclaw.findmy.traccar-stack`
+- `ai.openclaw.findmy.geopulse-stack`
+
+OwnTracks is currently the only one fed by `owntracks_findmy_bridge.py`.
+Traccar and GeoPulse are installed for UI comparison and can be connected later
+if selected as the final dashboard.
 
 ## Contacts Enrichment
 

@@ -25,11 +25,13 @@ Run a one-shot export:
 /Users/mh/.openclaw/workspace/.venvs/findmy-key-extractor/bin/python /Users/mh/Documents/Playground/openclaw-apple-findmy-skill/scripts/openclaw_findmy_export.py --print-summary
 ```
 
-Install/update the every-5-minutes LaunchAgent:
+Install/update the hourly LaunchAgent:
 
 ```bash
 /Users/mh/Documents/Playground/openclaw-apple-findmy-skill/scripts/install_launchagent.sh
 ```
+
+It currently runs hourly to reduce overhead.
 
 Install/update the optional FindMySync local receiver:
 
@@ -60,6 +62,13 @@ Open the local OwnTracks web viewer:
 
 ```text
 http://127.0.0.1:18084
+```
+
+Open the local comparison UIs:
+
+```text
+http://127.0.0.1:18082  # Traccar
+http://127.0.0.1:18085  # GeoPulse
 ```
 
 ## What It Covers

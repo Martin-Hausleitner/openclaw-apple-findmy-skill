@@ -50,6 +50,7 @@ path:
 ```bash
 scripts/install_findmysync_receiver_launchagent.sh
 scripts/install_findmysync_app_launchagent.sh
+scripts/disable_visible_findmy_pollers.sh
 ```
 
 Receiver UI:

@@ -50,6 +50,9 @@ The current design uses existing tools where they are strongest:
 - **FollowMyFriends** remains the best existing path for people/friends.
 - **FindMySync** remains useful as a Devices/Items sender shape.
 - **OpenClaw code** is the normalizer and dashboard adapter, not a public cloud.
+- The current Python exporter decrypts the fresh local FollowMyFriends database
+  itself. Do not run the old FollowMyFriends app poller in parallel unless you
+  intentionally want it to open Apple Find My.
 
 ## Repository Layout
 
@@ -106,6 +109,9 @@ scripts/install_launchagent.sh
 # Optional existing-tool receiver/sender path
 scripts/install_findmysync_receiver_launchagent.sh
 scripts/install_findmysync_app_launchagent.sh
+
+# Keep old visible app pollers out of the loop
+scripts/disable_visible_findmy_pollers.sh
 
 # Optional dashboards and 10-minute bridges
 scripts/install_owntracks_stack.sh

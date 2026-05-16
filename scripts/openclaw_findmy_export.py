@@ -15,6 +15,8 @@ import json
 import plistlib
 import shutil
 import sqlite3
+import subprocess
+import sys
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -41,6 +43,8 @@ FMF_LOCAL_DB = (
 FMF_DECRYPTED_DB = Path(
     "/Users/mh/.openclaw/workspace/state/apple-find-my/followmyfriends/LocalStorage_decrypted.sqlite"
 )
+LOCALSTORAGE_KEY = KEY_DIR / "LocalStorage.key"
+LOCALSTORAGE_DECRYPTOR = KEY_DIR.parent / "decrypt_localstorage.py"
 STATE_DIR = Path("/Users/mh/.openclaw/workspace/state/apple-find-my/export")
 ADDRESSBOOK_ROOT = HOME / "Library/Application Support/AddressBook"
 
@@ -82,6 +86,63 @@ def copy_sqlite_live(src: Path, dst: Path) -> None:
     finally:
         con.close()
     dst.chmod(0o600)
+
+
+def refresh_followmyfriends_sqlite() -> dict[str, Any]:
+    status: dict[str, Any] = {
+        "source": str(FMF_LOCAL_DB),
+        "output": str(FMF_DECRYPTED_DB),
+        "refreshed": False,
+    }
+    if not FMF_LOCAL_DB.exists():
+        status["error"] = "encrypted LocalStorage.db missing"
+        return status
+    if not LOCALSTORAGE_KEY.exists():
+        status["error"] = "LocalStorage.key missing"
+        return status
+    if not LOCALSTORAGE_DECRYPTOR.exists():
+        status["error"] = "decrypt_localstorage.py missing"
+        return status
+
+    FMF_DECRYPTED_DB.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(
+        prefix="LocalStorage_decrypted.",
+        suffix=".sqlite",
+        dir=str(FMF_DECRYPTED_DB.parent),
+        delete=False,
+    ) as tmp:
+        tmp_path = Path(tmp.name)
+
+    try:
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(LOCALSTORAGE_DECRYPTOR),
+                str(LOCALSTORAGE_KEY),
+                "--db",
+                str(FMF_LOCAL_DB),
+                "-o",
+                str(tmp_path),
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        status["returncode"] = result.returncode
+        if result.returncode != 0:
+            status["error"] = (result.stderr or result.stdout).strip()[-500:]
+            tmp_path.unlink(missing_ok=True)
+            return status
+        sqlite3.connect(str(tmp_path)).close()
+        tmp_path.chmod(0o600)
+        tmp_path.replace(FMF_DECRYPTED_DB)
+        FMF_DECRYPTED_DB.chmod(0o600)
+        status["refreshed"] = True
+        return status
+    except Exception as exc:  # noqa: BLE001 - exporter should fall back with status
+        status["error"] = str(exc)
+        tmp_path.unlink(missing_ok=True)
+        return status
 
 
 def count_location_rows(rows: list[dict[str, Any]]) -> int:
@@ -519,6 +580,7 @@ def export(args: argparse.Namespace) -> int:
     private_exact = STATE_DIR / "private-exact.json"
     redacted_summary = STATE_DIR / "redacted-summary.json"
 
+    summary["followmyfriends_decrypt"] = refresh_followmyfriends_sqlite()
     if FMF_DECRYPTED_DB.exists():
         summary["followmyfriends_sqlite"] = sqlite_summary(FMF_DECRYPTED_DB)
         people = followmyfriends_people(FMF_DECRYPTED_DB, contacts)

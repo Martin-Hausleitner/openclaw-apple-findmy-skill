@@ -108,6 +108,7 @@ scripts/install_launchagent.sh
 
 # Optional existing-tool receiver/sender path
 scripts/install_findmysync_receiver_launchagent.sh
+scripts/make_findmysync_dockless.sh
 scripts/install_findmysync_app_launchagent.sh
 
 # Keep old visible app pollers out of the loop

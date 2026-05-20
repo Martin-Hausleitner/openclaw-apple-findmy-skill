@@ -175,7 +175,9 @@ OneDrive target:
 `Latest/` is redacted and agent-safe. `Archive/Encrypted/` is private and
 encrypted; do not print archive contents or the local backup passphrase.
 `Status/healthcheck.json` and `Status/quality-report.md` are redacted and safe
-for normal assistants.
+for normal assistants. `Status/assistant-brief.md` is the shortest safe entry
+point. `Status/sync-sentinel.json` proves the OneDrive folder was writable when
+the backup ran.
 
 Inspect:
 

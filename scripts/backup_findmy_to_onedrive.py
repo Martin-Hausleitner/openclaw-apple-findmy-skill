@@ -35,6 +35,7 @@ LATEST_DIR = ONEDRIVE / "Latest"
 DOCS_DIR = ONEDRIVE / "Docs"
 STATUS_DIR = ONEDRIVE / "Status"
 HEALTHCHECK = Path("/Users/mh/Documents/Playground/openclaw-apple-findmy-skill/scripts/findmy_healthcheck.py")
+SYNC_SENTINEL = STATUS_DIR / "sync-sentinel.json"
 
 
 def utc_now() -> dt.datetime:
@@ -203,6 +204,54 @@ def render_quality_report(health: dict[str, Any], manifest: dict[str, Any]) -> s
     return "\n".join(lines)
 
 
+def render_assistant_brief(health: dict[str, Any], manifest: dict[str, Any]) -> str:
+    quality = health.get("quality") or {}
+    export = health.get("export") or {}
+    backup = health.get("onedrive_backup") or {}
+    sync = health.get("onedrive_sync") or {}
+    storage = health.get("storage") or {}
+    return "\n".join(
+        [
+            "# Find My Agent Brief",
+            "",
+            "Use this file for normal assistant checks. It is redacted.",
+            "",
+            f"- Status: {quality.get('status')} ({quality.get('score')}%)",
+            f"- Checked: {health.get('checked_at')}",
+            f"- Export generated: {export.get('generated_at')}",
+            f"- Counts: {json.dumps(export.get('counts'), ensure_ascii=False)}",
+            f"- Latest encrypted archive verified: {manifest.get('archive_verify', {}).get('ok')}",
+            f"- OneDrive writable: {sync.get('writable')}",
+            f"- OneDrive File Provider running: {sync.get('file_provider_running')}",
+            f"- Local state bytes: {storage.get('local_state_bytes')}",
+            f"- OneDrive backup bytes: {backup.get('local_folder_bytes')}",
+            "",
+            "Safe commands:",
+            "",
+            "```bash",
+            "/Users/mh/Documents/Playground/openclaw-apple-findmy-skill/scripts/findmy_healthcheck.py",
+            "/Users/mh/Documents/Playground/openclaw-apple-findmy-skill/scripts/verify_onedrive_backup.py",
+            "```",
+            "",
+            "Do not print coordinates, raw rows, keys, or dashboard credentials.",
+            "",
+        ]
+    )
+
+
+def write_sync_sentinel(manifest: dict[str, Any]) -> None:
+    write_json_atomic(
+        SYNC_SENTINEL,
+        {
+            "written_at": utc_now().isoformat(),
+            "archive": manifest.get("archive", {}).get("path"),
+            "archive_sha256": manifest.get("archive", {}).get("sha256"),
+            "archive_verify": manifest.get("archive_verify"),
+            "privacy": "Redacted sentinel proving OneDrive folder write access.",
+        },
+    )
+
+
 def parse_time(row: dict[str, Any]) -> dt.datetime | None:
     value = row.get("received_at") or row.get("ts") or row.get("time")
     if not isinstance(value, str):
@@ -324,9 +373,11 @@ def main() -> int:
     manifest_path = MANIFEST_DIR / f"findmy-private-{stamp}.manifest.json"
     write_json_atomic(manifest_path, manifest)
     copy_if_exists(manifest_path, LATEST_DIR / "latest-manifest.json")
+    write_sync_sentinel(manifest)
     health = run_healthcheck()
     write_json_atomic(STATUS_DIR / "healthcheck.json", health)
     write_text_atomic(STATUS_DIR / "quality-report.md", render_quality_report(health, manifest))
+    write_text_atomic(STATUS_DIR / "assistant-brief.md", render_assistant_brief(health, manifest))
     print(
         json.dumps(
             {

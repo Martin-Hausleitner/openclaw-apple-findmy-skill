@@ -231,6 +231,8 @@ Normal assistants can read:
 ```text
 /Users/mh/Library/CloudStorage/OneDrive-Personal/Anlagen/Backup/OpenClaw-FindMy/Status/healthcheck.json
 /Users/mh/Library/CloudStorage/OneDrive-Personal/Anlagen/Backup/OpenClaw-FindMy/Status/quality-report.md
+/Users/mh/Library/CloudStorage/OneDrive-Personal/Anlagen/Backup/OpenClaw-FindMy/Status/assistant-brief.md
+/Users/mh/Library/CloudStorage/OneDrive-Personal/Anlagen/Backup/OpenClaw-FindMy/Status/sync-sentinel.json
 ```
 
 ## Source Comparison

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import os
 import subprocess
 import urllib.error
 import urllib.request
@@ -37,6 +38,7 @@ BRIDGE_LOGS = {
     "owntracks": STATE / "owntracks/bridge-log.jsonl",
     "geopulse": STATE / "geopulse/bridge-log.jsonl",
 }
+SYNC_SENTINEL = ONEDRIVE_BACKUP / "Status/sync-sentinel.json"
 
 
 def now() -> dt.datetime:
@@ -90,6 +92,55 @@ def directory_bytes(path: Path) -> int:
             except OSError:
                 pass
     return total
+
+
+def top_level_storage(path: Path) -> dict[str, int]:
+    if not path.exists():
+        return {}
+    out: dict[str, int] = {}
+    for child in path.iterdir():
+        if child.is_file():
+            out[child.name] = child.stat().st_size
+        elif child.is_dir():
+            out[child.name] = directory_bytes(child)
+    return dict(sorted(out.items(), key=lambda item: item[1], reverse=True))
+
+
+def process_running(pattern: str) -> bool:
+    try:
+        result = subprocess.run(
+            ["ps", "ax", "-o", "command="],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=5,
+        )
+        return pattern.lower() in result.stdout.lower()
+    except Exception:
+        return False
+
+
+def onedrive_sync_info() -> dict[str, Any]:
+    folder = ONEDRIVE_BACKUP
+    sentinel = file_info(SYNC_SENTINEL)
+    writable = False
+    error = None
+    probe = folder / "Status/.write-probe.tmp"
+    try:
+        probe.parent.mkdir(parents=True, exist_ok=True)
+        probe.write_text("ok\n", encoding="utf-8")
+        writable = probe.read_text(encoding="utf-8") == "ok\n"
+        probe.unlink(missing_ok=True)
+    except Exception as exc:  # noqa: BLE001 - healthcheck should report, not fail
+        error = type(exc).__name__
+    return {
+        "folder": str(folder),
+        "in_cloudstorage": "/Library/CloudStorage/OneDrive-Personal/" in str(folder),
+        "file_provider_running": process_running("OneDrive File Provider"),
+        "writable": writable,
+        "write_probe_error": error,
+        "sync_sentinel": sentinel,
+    }
 
 
 def http_check(url: str) -> dict[str, Any]:
@@ -207,6 +258,7 @@ def backup_info() -> dict[str, Any]:
         "latest_archive": file_info(latest_archive) if latest_archive else {"exists": False},
         "latest_summary": file_info(ONEDRIVE_BACKUP / "Latest/latest-summary.json"),
         "status_healthcheck": file_info(ONEDRIVE_BACKUP / "Status/healthcheck.json"),
+        "assistant_brief": file_info(ONEDRIVE_BACKUP / "Status/assistant-brief.md"),
     }
 
 
@@ -274,6 +326,25 @@ def quality(payload: dict[str, Any]) -> dict[str, Any]:
         payload["onedrive_backup"]["status_healthcheck"].get("exists") is True,
         "agent-readable Status/healthcheck.json exists",
     )
+    sync = payload["onedrive_sync"]
+    add(
+        "one_drive_file_provider",
+        sync.get("file_provider_running") is True,
+        f"OneDrive file provider running: {sync.get('file_provider_running')}",
+        "critical",
+    )
+    add(
+        "one_drive_writable",
+        sync.get("writable") is True,
+        f"OneDrive write probe: {sync.get('writable')}",
+        "critical",
+    )
+    sentinel_age = sync.get("sync_sentinel", {}).get("age_minutes")
+    add(
+        "one_drive_sentinel_recent",
+        isinstance(sentinel_age, (int, float)) and sentinel_age <= 75,
+        f"sync sentinel age {sentinel_age} min",
+    )
     for name, status in payload["dashboards"].items():
         add(f"dashboard_{name}", status.get("ok") is True, f"{name}: {status}")
     for name, status in payload["bridges"].items():
@@ -318,11 +389,14 @@ def main() -> int:
         },
         "findmysync_source": latest_findmysync_events(),
         "onedrive_backup": backup_info(),
+        "onedrive_sync": onedrive_sync_info(),
         "dashboards": {name: http_check(url) for name, url in DASHBOARDS.items()},
         "bridges": {name: latest_jsonl_row(path) for name, path in BRIDGE_LOGS.items()},
         "storage": {
             "local_state_bytes": directory_bytes(STATE),
             "onedrive_backup_bytes": directory_bytes(ONEDRIVE_BACKUP),
+            "local_state_breakdown": top_level_storage(STATE),
+            "onedrive_breakdown": top_level_storage(ONEDRIVE_BACKUP),
         },
         "agent_install": skill_install_info(),
         "repo": repo_info(),

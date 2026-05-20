@@ -221,6 +221,9 @@ contains encrypted private snapshots. The backup passphrase stays local under
 `Status/healthcheck.json` and `Status/quality-report.md` give normal assistants
 a redacted end-to-end status, freshness score, dashboard status, and backup
 verification result.
+`Status/sync-sentinel.json` proves the OneDrive folder is writable on this Mac,
+and `Status/assistant-brief.md` is the shortest safe entry point for a normal
+assistant.
 
 ## Safety Model
 

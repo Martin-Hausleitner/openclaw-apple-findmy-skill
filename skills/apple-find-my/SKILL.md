@@ -132,6 +132,8 @@ Run or install the OneDrive backup:
 /Users/mh/Documents/Playground/openclaw-apple-findmy-skill/scripts/backup_findmy_to_onedrive.py
 /Users/mh/Documents/Playground/openclaw-apple-findmy-skill/scripts/install_onedrive_backup_launchagent.sh
 /Users/mh/Documents/Playground/openclaw-apple-findmy-skill/scripts/verify_onedrive_backup.py
+/Users/mh/Documents/Playground/openclaw-apple-findmy-skill/scripts/publish_findmy_agent_status.py
+/Users/mh/Documents/Playground/openclaw-apple-findmy-skill/scripts/install_status_publisher_launchagent.sh
 ```
 
 Verify Traccar/GeoPulse counts through APIs without printing coordinates:
@@ -178,6 +180,8 @@ encrypted; do not print archive contents or the local backup passphrase.
 for normal assistants. `Status/assistant-brief.md` is the shortest safe entry
 point. `Status/sync-sentinel.json` proves the OneDrive folder was writable when
 the backup ran.
+`Status/current-status.json`, `.md`, and `.txt` are refreshed every 10 minutes
+for normal assistants without touching private archive contents.
 
 Inspect:
 

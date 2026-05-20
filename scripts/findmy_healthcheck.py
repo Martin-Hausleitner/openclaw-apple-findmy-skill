@@ -39,6 +39,8 @@ BRIDGE_LOGS = {
     "geopulse": STATE / "geopulse/bridge-log.jsonl",
 }
 SYNC_SENTINEL = ONEDRIVE_BACKUP / "Status/sync-sentinel.json"
+CURRENT_STATUS = ONEDRIVE_BACKUP / "Status/current-status.json"
+ASSISTANT_BRIEF = ONEDRIVE_BACKUP / "Status/assistant-brief.md"
 
 
 def now() -> dt.datetime:
@@ -136,7 +138,7 @@ def onedrive_sync_info() -> dict[str, Any]:
     return {
         "folder": str(folder),
         "in_cloudstorage": "/Library/CloudStorage/OneDrive-Personal/" in str(folder),
-        "file_provider_running": process_running("OneDrive File Provider"),
+        "file_provider_running": process_running("onedrive"),
         "writable": writable,
         "write_probe_error": error,
         "sync_sentinel": sentinel,
@@ -258,7 +260,8 @@ def backup_info() -> dict[str, Any]:
         "latest_archive": file_info(latest_archive) if latest_archive else {"exists": False},
         "latest_summary": file_info(ONEDRIVE_BACKUP / "Latest/latest-summary.json"),
         "status_healthcheck": file_info(ONEDRIVE_BACKUP / "Status/healthcheck.json"),
-        "assistant_brief": file_info(ONEDRIVE_BACKUP / "Status/assistant-brief.md"),
+        "assistant_brief": file_info(ASSISTANT_BRIEF),
+        "current_status": file_info(CURRENT_STATUS),
     }
 
 
@@ -325,6 +328,11 @@ def quality(payload: dict[str, Any]) -> dict[str, Any]:
         "one_drive_status_file",
         payload["onedrive_backup"]["status_healthcheck"].get("exists") is True,
         "agent-readable Status/healthcheck.json exists",
+    )
+    add(
+        "normal_assistant_current_status",
+        payload["onedrive_backup"]["current_status"].get("exists") is True,
+        "agent-readable Status/current-status.json exists",
     )
     sync = payload["onedrive_sync"]
     add(

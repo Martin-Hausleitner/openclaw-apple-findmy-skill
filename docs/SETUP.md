@@ -232,7 +232,16 @@ Normal assistants can read:
 /Users/mh/Library/CloudStorage/OneDrive-Personal/Anlagen/Backup/OpenClaw-FindMy/Status/healthcheck.json
 /Users/mh/Library/CloudStorage/OneDrive-Personal/Anlagen/Backup/OpenClaw-FindMy/Status/quality-report.md
 /Users/mh/Library/CloudStorage/OneDrive-Personal/Anlagen/Backup/OpenClaw-FindMy/Status/assistant-brief.md
+/Users/mh/Library/CloudStorage/OneDrive-Personal/Anlagen/Backup/OpenClaw-FindMy/Status/current-status.json
+/Users/mh/Library/CloudStorage/OneDrive-Personal/Anlagen/Backup/OpenClaw-FindMy/Status/current-status.md
+/Users/mh/Library/CloudStorage/OneDrive-Personal/Anlagen/Backup/OpenClaw-FindMy/Status/current-status.txt
 /Users/mh/Library/CloudStorage/OneDrive-Personal/Anlagen/Backup/OpenClaw-FindMy/Status/sync-sentinel.json
+```
+
+Install the lightweight 10-minute status publisher:
+
+```bash
+scripts/install_status_publisher_launchagent.sh
 ```
 
 ## Source Comparison

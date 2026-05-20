@@ -122,6 +122,9 @@ scripts/install_geopulse_stack.sh
 
 # Hourly OneDrive backup + local JSONL/log retention
 scripts/install_onedrive_backup_launchagent.sh
+
+# Fast 10-minute redacted status for normal assistants
+scripts/install_status_publisher_launchagent.sh
 ```
 
 All recurring jobs are installed as macOS LaunchAgents and currently run every 10 minutes
@@ -135,6 +138,7 @@ where polling is involved.
 | `ai.openclaw.findmy.owntracks-bridge` | send export to OwnTracks | 10 min |
 | `ai.openclaw.findmy.traccar-bridge` | send merged export to Traccar | 10 min |
 | `ai.openclaw.findmy.geopulse-bridge` | send export to GeoPulse | 10 min |
+| `ai.openclaw.findmy.status-publisher` | publish redacted current status to OneDrive | 10 min |
 | `ai.openclaw.findmy.onedrive-backup` | encrypted private backup to OneDrive | 60 min |
 | `ai.openclaw.findmysync.receiver` | receive local FindMySync-style posts | always on |
 | `ai.openclaw.findmysync.app` | start FindMySync app at login | login |
@@ -224,6 +228,8 @@ verification result.
 `Status/sync-sentinel.json` proves the OneDrive folder is writable on this Mac,
 and `Status/assistant-brief.md` is the shortest safe entry point for a normal
 assistant.
+`Status/current-status.json`, `.md`, and `.txt` are refreshed every 10 minutes
+without creating a new private archive.
 
 ## Safety Model
 

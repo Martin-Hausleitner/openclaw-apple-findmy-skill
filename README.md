@@ -181,6 +181,12 @@ Run a manual OneDrive backup:
 scripts/backup_findmy_to_onedrive.py
 ```
 
+Verify the newest encrypted archive without extracting private data:
+
+```bash
+scripts/verify_onedrive_backup.py
+```
+
 Expected current bridge count:
 
 ```text
@@ -212,6 +218,9 @@ OneDrive backups are written here:
 `Latest/` contains redacted summaries for agents. `Archive/Encrypted/`
 contains encrypted private snapshots. The backup passphrase stays local under
 `/Users/mh/.openclaw/workspace/state/apple-find-my/backup` and is not committed.
+`Status/healthcheck.json` and `Status/quality-report.md` give normal assistants
+a redacted end-to-end status, freshness score, dashboard status, and backup
+verification result.
 
 ## Safety Model
 

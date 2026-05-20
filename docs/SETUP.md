@@ -206,6 +206,12 @@ Run it manually:
 scripts/backup_findmy_to_onedrive.py
 ```
 
+Verify the latest encrypted backup without extracting private rows:
+
+```bash
+scripts/verify_onedrive_backup.py
+```
+
 The private archive includes the normalized private export, decrypted
 FollowMyFriends cache snapshot, FindMySync receiver events, and bridge logs.
 It is encrypted before it enters OneDrive. The local passphrase remains under:
@@ -218,6 +224,13 @@ For a redacted end-to-end status report:
 
 ```bash
 scripts/findmy_healthcheck.py
+```
+
+Normal assistants can read:
+
+```text
+/Users/mh/Library/CloudStorage/OneDrive-Personal/Anlagen/Backup/OpenClaw-FindMy/Status/healthcheck.json
+/Users/mh/Library/CloudStorage/OneDrive-Personal/Anlagen/Backup/OpenClaw-FindMy/Status/quality-report.md
 ```
 
 ## Source Comparison

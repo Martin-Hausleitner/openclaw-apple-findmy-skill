@@ -5,6 +5,9 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import subprocess
+import urllib.error
+import urllib.request
 from pathlib import Path
 from typing import Any
 
@@ -20,6 +23,20 @@ FMF_DB = (
     Path.home()
     / "Library/Group Containers/group.com.apple.findmy.findmylocateagent/Library/Application Support/LocalStorage.db"
 )
+REPO = Path("/Users/mh/Documents/Playground/openclaw-apple-findmy-skill")
+OPENCLAW_SKILL = Path("/Users/mh/.openclaw/workspace/skills/apple-find-my")
+HERMES_SKILL = Path("/Users/mh/.hermes/skills/apple/findmy")
+DASHBOARDS = {
+    "findmysync_receiver": "http://127.0.0.1:8765/findmysync",
+    "owntracks": "http://127.0.0.1:18084",
+    "traccar": "http://127.0.0.1:18082",
+    "geopulse": "http://127.0.0.1:18085",
+}
+BRIDGE_LOGS = {
+    "traccar": STATE / "traccar/bridge-log.jsonl",
+    "owntracks": STATE / "owntracks/bridge-log.jsonl",
+    "geopulse": STATE / "geopulse/bridge-log.jsonl",
+}
 
 
 def now() -> dt.datetime:
@@ -60,6 +77,61 @@ def load_json(path: Path) -> dict[str, Any]:
         return json.loads(path.read_text())
     except Exception:
         return {}
+
+
+def directory_bytes(path: Path) -> int:
+    if not path.exists():
+        return 0
+    total = 0
+    for child in path.rglob("*"):
+        if child.is_file():
+            try:
+                total += child.stat().st_size
+            except OSError:
+                pass
+    return total
+
+
+def http_check(url: str) -> dict[str, Any]:
+    for method in ("HEAD", "GET"):
+        request = urllib.request.Request(url, method=method)
+        try:
+            with urllib.request.urlopen(request, timeout=4) as response:
+                return {"ok": 200 <= response.status < 400, "status": response.status, "method": method}
+        except urllib.error.HTTPError as exc:
+            if method == "HEAD" and exc.code in {405, 501}:
+                continue
+            return {"ok": exc.code < 500, "status": exc.code, "method": method}
+        except Exception as exc:  # noqa: BLE001 - healthcheck should report, not fail
+            return {"ok": False, "error": type(exc).__name__, "method": method}
+    return {"ok": False, "error": "unreachable"}
+
+
+def latest_jsonl_row(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {"exists": False}
+    latest: dict[str, Any] | None = None
+    with path.open(errors="replace") as handle:
+        for line in handle:
+            if not line.strip():
+                continue
+            try:
+                latest = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+    if not latest:
+        return {"exists": True, "has_rows": False}
+    ts = parse_time(latest.get("ts") or latest.get("time") or latest.get("received_at"))
+    errors = latest.get("errors") or []
+    return {
+        "exists": True,
+        "has_rows": True,
+        "latest_ts": ts.isoformat() if ts else None,
+        "latest_age_minutes": round((now() - ts).total_seconds() / 60, 1) if ts else None,
+        "latest_errors": len(errors) if isinstance(errors, list) else None,
+        "points_seen": latest.get("points_seen"),
+        "points_sent": latest.get("points_sent") or latest.get("positions_sent"),
+    }
 
 
 def latest_findmysync_events() -> dict[str, Any]:
@@ -129,10 +201,101 @@ def backup_info() -> dict[str, Any]:
     return {
         "folder": str(ONEDRIVE_BACKUP),
         "exists": ONEDRIVE_BACKUP.exists(),
+        "local_folder_bytes": directory_bytes(ONEDRIVE_BACKUP),
         "encrypted_archives": len(archives),
         "manifests": len(manifests),
         "latest_archive": file_info(latest_archive) if latest_archive else {"exists": False},
         "latest_summary": file_info(ONEDRIVE_BACKUP / "Latest/latest-summary.json"),
+        "status_healthcheck": file_info(ONEDRIVE_BACKUP / "Status/healthcheck.json"),
+    }
+
+
+def skill_install_info() -> dict[str, Any]:
+    def one(path: Path) -> dict[str, Any]:
+        return {
+            "path": str(path),
+            "skill_md": file_info(path / "SKILL.md"),
+            "healthcheck": file_info(path / "scripts/findmy_healthcheck.py"),
+            "backup": file_info(path / "scripts/backup_findmy_to_onedrive.py"),
+        }
+
+    return {"openclaw": one(OPENCLAW_SKILL), "hermes": one(HERMES_SKILL)}
+
+
+def repo_info() -> dict[str, Any]:
+    try:
+        commit = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=REPO,
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=5,
+        ).stdout.strip()
+    except Exception:
+        commit = None
+    return {"path": str(REPO), "commit": commit}
+
+
+def quality(payload: dict[str, Any]) -> dict[str, Any]:
+    checks: list[dict[str, Any]] = []
+
+    def add(name: str, ok: bool, detail: str, severity: str = "warn") -> None:
+        checks.append({"name": name, "ok": ok, "severity": severity, "detail": detail})
+
+    export_age = payload["export"]["latest_summary"].get("age_minutes")
+    add(
+        "export_fresh",
+        isinstance(export_age, (int, float)) and export_age <= 20,
+        f"export age {export_age} min",
+        "critical",
+    )
+    people_age = payload["people_source"].get("newest_age_hours")
+    add(
+        "people_recent",
+        isinstance(people_age, (int, float)) and people_age <= 6,
+        f"newest people point age {people_age} h",
+    )
+    findmysync_age = payload["findmysync_source"].get("newest_age_minutes")
+    add(
+        "findmysync_recent",
+        isinstance(findmysync_age, (int, float)) and findmysync_age <= 70,
+        f"newest FindMySync event age {findmysync_age} min",
+    )
+    backup_age = payload["onedrive_backup"]["latest_archive"].get("age_minutes")
+    add(
+        "onedrive_backup_recent",
+        isinstance(backup_age, (int, float)) and backup_age <= 75,
+        f"latest encrypted backup age {backup_age} min",
+        "critical",
+    )
+    add(
+        "one_drive_status_file",
+        payload["onedrive_backup"]["status_healthcheck"].get("exists") is True,
+        "agent-readable Status/healthcheck.json exists",
+    )
+    for name, status in payload["dashboards"].items():
+        add(f"dashboard_{name}", status.get("ok") is True, f"{name}: {status}")
+    for name, status in payload["bridges"].items():
+        add(
+            f"bridge_{name}",
+            status.get("latest_errors") == 0 and status.get("latest_age_minutes", 9999) <= 30,
+            f"{name}: age {status.get('latest_age_minutes')} min, errors {status.get('latest_errors')}",
+            "critical",
+        )
+
+    failed = [check for check in checks if not check["ok"]]
+    critical_failed = [check for check in failed if check["severity"] == "critical"]
+    if critical_failed:
+        status = "critical"
+    elif failed:
+        status = "degraded"
+    else:
+        status = "ok"
+    return {
+        "status": status,
+        "score": round(100 * (len(checks) - len(failed)) / len(checks), 1) if checks else 0,
+        "checks": checks,
     }
 
 
@@ -155,7 +318,16 @@ def main() -> int:
         },
         "findmysync_source": latest_findmysync_events(),
         "onedrive_backup": backup_info(),
+        "dashboards": {name: http_check(url) for name, url in DASHBOARDS.items()},
+        "bridges": {name: latest_jsonl_row(path) for name, path in BRIDGE_LOGS.items()},
+        "storage": {
+            "local_state_bytes": directory_bytes(STATE),
+            "onedrive_backup_bytes": directory_bytes(ONEDRIVE_BACKUP),
+        },
+        "agent_install": skill_install_info(),
+        "repo": repo_info(),
     }
+    payload["quality"] = quality(payload)
     print(json.dumps(payload, ensure_ascii=False, indent=2))
     return 0
 

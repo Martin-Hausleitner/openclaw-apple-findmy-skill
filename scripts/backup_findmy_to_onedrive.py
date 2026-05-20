@@ -12,6 +12,7 @@ import shutil
 import subprocess
 import tarfile
 import tempfile
+import urllib.request
 from pathlib import Path
 from typing import Any
 
@@ -32,6 +33,8 @@ ARCHIVE_DIR = ONEDRIVE / "Archive/Encrypted"
 MANIFEST_DIR = ONEDRIVE / "Manifests"
 LATEST_DIR = ONEDRIVE / "Latest"
 DOCS_DIR = ONEDRIVE / "Docs"
+STATUS_DIR = ONEDRIVE / "Status"
+HEALTHCHECK = Path("/Users/mh/Documents/Playground/openclaw-apple-findmy-skill/scripts/findmy_healthcheck.py")
 
 
 def utc_now() -> dt.datetime:
@@ -100,6 +103,106 @@ def encrypt_file(src: Path, dst: Path, passphrase_file: Path) -> None:
     dst.chmod(0o600)
 
 
+def verify_encrypted_archive(src: Path, passphrase_file: Path) -> dict[str, Any]:
+    with tempfile.TemporaryDirectory(prefix="findmy-verify-") as tmp_dir:
+        tar_path = Path(tmp_dir) / "restore-check.tar.gz"
+        result = subprocess.run(
+            [
+                "/usr/bin/openssl",
+                "enc",
+                "-d",
+                "-aes-256-cbc",
+                "-pbkdf2",
+                "-in",
+                str(src),
+                "-out",
+                str(tar_path),
+                "-pass",
+                f"file:{passphrase_file}",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode != 0:
+            return {"ok": False, "error": "decrypt_failed"}
+        try:
+            with tarfile.open(tar_path, "r:gz") as tar:
+                names = tar.getnames()
+        except tarfile.TarError:
+            return {"ok": False, "error": "tar_list_failed"}
+    required = {
+        "export/private-exact.json",
+        "export/latest-summary.json",
+        "findmysync/events.jsonl",
+    }
+    return {
+        "ok": required.issubset(set(names)),
+        "file_count": len(names),
+        "contains_required": sorted(required.intersection(names)),
+    }
+
+
+def write_text_atomic(path: Path, text: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    tmp.write_text(text, encoding="utf-8")
+    tmp.replace(path)
+
+
+def write_json_atomic(path: Path, data: Any) -> None:
+    write_text_atomic(path, json.dumps(data, ensure_ascii=False, indent=2))
+
+
+def run_healthcheck() -> dict[str, Any]:
+    if not HEALTHCHECK.exists():
+        return {"error": "healthcheck_missing"}
+    result = subprocess.run(
+        [str(HEALTHCHECK)],
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=30,
+    )
+    if result.returncode != 0:
+        return {"error": "healthcheck_failed"}
+    try:
+        return json.loads(result.stdout)
+    except json.JSONDecodeError:
+        return {"error": "healthcheck_invalid_json"}
+
+
+def render_quality_report(health: dict[str, Any], manifest: dict[str, Any]) -> str:
+    quality = health.get("quality") or {}
+    backup = health.get("onedrive_backup") or {}
+    storage = health.get("storage") or {}
+    checks = quality.get("checks") or []
+    lines = [
+        "# OpenClaw Find My Backup Status",
+        "",
+        f"- Checked: {health.get('checked_at')}",
+        f"- Quality: {quality.get('status')} ({quality.get('score')}%)",
+        f"- Latest encrypted archive: {manifest.get('archive', {}).get('path')}",
+        f"- Archive verify: {manifest.get('archive_verify', {}).get('ok')}",
+        f"- OneDrive folder bytes: {backup.get('local_folder_bytes')}",
+        f"- Local state bytes: {storage.get('local_state_bytes')}",
+        "",
+        "## Checks",
+        "",
+    ]
+    for check in checks:
+        mark = "OK" if check.get("ok") else "WARN"
+        lines.append(f"- {mark}: {check.get('name')} - {check.get('detail')}")
+    lines.extend(
+        [
+            "",
+            "This report is redacted. It intentionally contains no coordinates, keys, raw rows, or dashboard credentials.",
+            "",
+        ]
+    )
+    return "\n".join(lines)
+
+
 def parse_time(row: dict[str, Any]) -> dt.datetime | None:
     value = row.get("received_at") or row.get("ts") or row.get("time")
     if not isinstance(value, str):
@@ -160,7 +263,7 @@ def prune_old_backups(max_age_days: int, keep_minimum: int) -> list[str]:
 
 
 def main() -> int:
-    for directory in (ARCHIVE_DIR, MANIFEST_DIR, LATEST_DIR, DOCS_DIR):
+    for directory in (ARCHIVE_DIR, MANIFEST_DIR, LATEST_DIR, DOCS_DIR, STATUS_DIR):
         directory.mkdir(parents=True, exist_ok=True)
 
     passphrase = ensure_passphrase()
@@ -206,6 +309,7 @@ def main() -> int:
             "bytes": encrypted_path.stat().st_size,
             "sha256": sha256(encrypted_path),
         }
+        manifest["archive_verify"] = verify_encrypted_archive(encrypted_path, passphrase)
 
     manifest["local_retention"] = {
         "findmysync_events": trim_jsonl(FINDMYSYNC / "events.jsonl", days=14, max_lines=50_000),
@@ -218,12 +322,18 @@ def main() -> int:
     manifest["pruned"] = prune_old_backups(max_age_days=90, keep_minimum=24)
 
     manifest_path = MANIFEST_DIR / f"findmy-private-{stamp}.manifest.json"
-    manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+    write_json_atomic(manifest_path, manifest)
+    copy_if_exists(manifest_path, LATEST_DIR / "latest-manifest.json")
+    health = run_healthcheck()
+    write_json_atomic(STATUS_DIR / "healthcheck.json", health)
+    write_text_atomic(STATUS_DIR / "quality-report.md", render_quality_report(health, manifest))
     print(
         json.dumps(
             {
                 "created_at": manifest["created_at"],
                 "archive": manifest["archive"]["path"],
+                "archive_verify": manifest["archive_verify"].get("ok"),
+                "health_status": (health.get("quality") or {}).get("status"),
                 "latest_copies": len(latest_copies),
                 "included_files": len(manifest["included_files"]),
                 "pruned": len(manifest["pruned"]),

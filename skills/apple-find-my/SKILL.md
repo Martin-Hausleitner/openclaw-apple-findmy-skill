@@ -131,6 +131,7 @@ Run or install the OneDrive backup:
 ```bash
 /Users/mh/Documents/Playground/openclaw-apple-findmy-skill/scripts/backup_findmy_to_onedrive.py
 /Users/mh/Documents/Playground/openclaw-apple-findmy-skill/scripts/install_onedrive_backup_launchagent.sh
+/Users/mh/Documents/Playground/openclaw-apple-findmy-skill/scripts/verify_onedrive_backup.py
 ```
 
 Verify Traccar/GeoPulse counts through APIs without printing coordinates:
@@ -173,6 +174,8 @@ OneDrive target:
 
 `Latest/` is redacted and agent-safe. `Archive/Encrypted/` is private and
 encrypted; do not print archive contents or the local backup passphrase.
+`Status/healthcheck.json` and `Status/quality-report.md` are redacted and safe
+for normal assistants.
 
 Inspect:
 

@@ -74,6 +74,21 @@ def decrypt_cache_file(path: Path, key: bytes) -> Any:
     return plistlib.loads(plaintext)
 
 
+def decrypt_optional_cache_file(
+    path: Path, key: bytes, status: dict[str, Any], fallback: Any
+) -> Any:
+    if not path.exists():
+        status.setdefault("missing", []).append(str(path))
+        return fallback
+    try:
+        value = decrypt_cache_file(path, key)
+        status.setdefault("decrypted", []).append(str(path))
+        return value
+    except Exception as exc:  # noqa: BLE001 - export should keep partial sources alive
+        status.setdefault("errors", []).append({"path": str(path), "error": str(exc)})
+        return fallback
+
+
 def copy_sqlite_live(src: Path, dst: Path) -> None:
     dst.parent.mkdir(parents=True, exist_ok=True)
     con = sqlite3.connect(str(src))
@@ -541,14 +556,34 @@ def export(args: argparse.Namespace) -> int:
     contacts, contacts_stats = load_contacts_index()
 
     exact: dict[str, Any] = {"generated_at": now_iso(), "source": "local_findmy_cache"}
-    exact["items"] = decrypt_cache_file(FMIP_CACHE / "Items.data", fmip_key)
-    exact["devices"] = decrypt_cache_file(FMIP_CACHE / "Devices.data", fmip_key)
-    exact["family_members"] = decrypt_cache_file(FMIP_CACHE / "FamilyMembers.data", fmip_key)
-    exact["item_groups"] = decrypt_cache_file(FMIP_CACHE / "ItemGroups.data", fmip_key)
-    exact["safe_locations"] = decrypt_cache_file(FMIP_CACHE / "SafeLocations.data", fmip_key)
-    exact["owner"] = decrypt_cache_file(FMIP_CACHE / "Owner.data", fmip_key)
+    fmip_status: dict[str, Any] = {
+        "cache_dir": str(FMIP_CACHE),
+        "cache_dir_exists": FMIP_CACHE.exists(),
+    }
+    fmf_status: dict[str, Any] = {
+        "cache_dir": str(FMF_CACHE),
+        "cache_dir_exists": FMF_CACHE.exists(),
+    }
+    exact["items"] = decrypt_optional_cache_file(
+        FMIP_CACHE / "Items.data", fmip_key, fmip_status, []
+    )
+    exact["devices"] = decrypt_optional_cache_file(
+        FMIP_CACHE / "Devices.data", fmip_key, fmip_status, []
+    )
+    exact["family_members"] = decrypt_optional_cache_file(
+        FMIP_CACHE / "FamilyMembers.data", fmip_key, fmip_status, []
+    )
+    exact["item_groups"] = decrypt_optional_cache_file(
+        FMIP_CACHE / "ItemGroups.data", fmip_key, fmip_status, []
+    )
+    exact["safe_locations"] = decrypt_optional_cache_file(
+        FMIP_CACHE / "SafeLocations.data", fmip_key, fmip_status, []
+    )
+    exact["owner"] = decrypt_optional_cache_file(FMIP_CACHE / "Owner.data", fmip_key, fmip_status, {})
     if (FMF_CACHE / "FriendCacheData.data").exists():
-        exact["friends_cache"] = decrypt_cache_file(FMF_CACHE / "FriendCacheData.data", fmf_key)
+        exact["friends_cache"] = decrypt_optional_cache_file(
+            FMF_CACHE / "FriendCacheData.data", fmf_key, fmf_status, None
+        )
 
     summary = {
         "generated_at": exact["generated_at"],
@@ -575,6 +610,10 @@ def export(args: argparse.Namespace) -> int:
         else [],
         "friends_cache": summarize_friends_cache(exact.get("friends_cache")),
         "contacts_index": contacts_stats,
+        "legacy_cache_status": {
+            "fmip": fmip_status,
+            "fmf": fmf_status,
+        },
     }
 
     private_exact = STATE_DIR / "private-exact.json"

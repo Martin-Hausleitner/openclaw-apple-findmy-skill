@@ -177,12 +177,47 @@ for label in \
   ai.openclaw.findmy.owntracks-bridge \
   ai.openclaw.findmy.traccar-bridge \
   ai.openclaw.findmy.geopulse-bridge \
+  ai.openclaw.findmy.onedrive-backup \
   ai.openclaw.findmysync.receiver \
   ai.openclaw.findmysync.app
 do
   echo "--- $label"
   launchctl print "gui/$(id -u)/$label" | grep -E 'state =|last exit code|run interval' || true
 done
+```
+
+## OneDrive Backup
+
+The backup job stores redacted summaries and encrypted private snapshots in:
+
+```text
+/Users/mh/Library/CloudStorage/OneDrive-Personal/Anlagen/Backup/OpenClaw-FindMy
+```
+
+Install or refresh it:
+
+```bash
+scripts/install_onedrive_backup_launchagent.sh
+```
+
+Run it manually:
+
+```bash
+scripts/backup_findmy_to_onedrive.py
+```
+
+The private archive includes the normalized private export, decrypted
+FollowMyFriends cache snapshot, FindMySync receiver events, and bridge logs.
+It is encrypted before it enters OneDrive. The local passphrase remains under:
+
+```text
+/Users/mh/.openclaw/workspace/state/apple-find-my/backup/onedrive-backup-passphrase.txt
+```
+
+For a redacted end-to-end status report:
+
+```bash
+scripts/findmy_healthcheck.py
 ```
 
 ## Source Comparison

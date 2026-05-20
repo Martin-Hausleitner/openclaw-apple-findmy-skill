@@ -89,6 +89,7 @@ owntracks/                        # OwnTracks state and logs
 traccar/                          # Traccar database, logs, local login
 geopulse/                         # GeoPulse database, keys, local login
 findmysync/events.jsonl           # raw local receiver payloads
+backup/                           # local backup passphrase and backup logs
 ```
 
 Never commit the private state directory. `.gitignore` is configured to block
@@ -118,6 +119,9 @@ scripts/disable_visible_findmy_pollers.sh
 scripts/install_owntracks_stack.sh
 scripts/install_traccar_stack.sh
 scripts/install_geopulse_stack.sh
+
+# Hourly OneDrive backup + local JSONL/log retention
+scripts/install_onedrive_backup_launchagent.sh
 ```
 
 All recurring jobs are installed as macOS LaunchAgents and currently run every 10 minutes
@@ -131,6 +135,7 @@ where polling is involved.
 | `ai.openclaw.findmy.owntracks-bridge` | send export to OwnTracks | 10 min |
 | `ai.openclaw.findmy.traccar-bridge` | send merged export to Traccar | 10 min |
 | `ai.openclaw.findmy.geopulse-bridge` | send export to GeoPulse | 10 min |
+| `ai.openclaw.findmy.onedrive-backup` | encrypted private backup to OneDrive | 60 min |
 | `ai.openclaw.findmysync.receiver` | receive local FindMySync-style posts | always on |
 | `ai.openclaw.findmysync.app` | start FindMySync app at login | login |
 
@@ -141,6 +146,7 @@ launchctl print gui/$(id -u)/ai.openclaw.findmy.export
 launchctl print gui/$(id -u)/ai.openclaw.findmy.owntracks-bridge
 launchctl print gui/$(id -u)/ai.openclaw.findmy.traccar-bridge
 launchctl print gui/$(id -u)/ai.openclaw.findmy.geopulse-bridge
+launchctl print gui/$(id -u)/ai.openclaw.findmy.onedrive-backup
 ```
 
 ## Verify
@@ -161,6 +167,18 @@ Check the dashboard bridges:
   scripts/traccar_findmy_bridge.py --print-summary
 /Users/mh/.openclaw/workspace/.venvs/findmy-key-extractor/bin/python \
   scripts/geopulse_findmy_bridge.py --print-summary
+```
+
+Check the full stack without printing coordinates or secrets:
+
+```bash
+scripts/findmy_healthcheck.py
+```
+
+Run a manual OneDrive backup:
+
+```bash
+scripts/backup_findmy_to_onedrive.py
 ```
 
 Expected current bridge count:
@@ -185,11 +203,22 @@ Dashboard credentials are generated/stored only in private local state files:
 /Users/mh/.openclaw/workspace/state/apple-find-my/geopulse/login.env
 ```
 
+OneDrive backups are written here:
+
+```text
+/Users/mh/Library/CloudStorage/OneDrive-Personal/Anlagen/Backup/OpenClaw-FindMy
+```
+
+`Latest/` contains redacted summaries for agents. `Archive/Encrypted/`
+contains encrypted private snapshots. The backup passphrase stays local under
+`/Users/mh/.openclaw/workspace/state/apple-find-my/backup` and is not committed.
+
 ## Safety Model
 
 - No Apple ID password or 2FA code is stored in this repo.
 - No exact location data is committed.
 - Agents should read `latest-summary.json` by default.
+- Agents can run `scripts/findmy_healthcheck.py` for a safe freshness report.
 - Exact data is only for local dashboard bridges and explicit private checks.
 - Location output in chat should be summarized unless Martin explicitly asks
   for exact private coordinates.

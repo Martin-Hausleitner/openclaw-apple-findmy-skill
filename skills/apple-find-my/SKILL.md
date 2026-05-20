@@ -120,6 +120,19 @@ points_seen/tracks = 34
 errors = []
 ```
 
+Run a redacted full-stack healthcheck:
+
+```bash
+/Users/mh/Documents/Playground/openclaw-apple-findmy-skill/scripts/findmy_healthcheck.py
+```
+
+Run or install the OneDrive backup:
+
+```bash
+/Users/mh/Documents/Playground/openclaw-apple-findmy-skill/scripts/backup_findmy_to_onedrive.py
+/Users/mh/Documents/Playground/openclaw-apple-findmy-skill/scripts/install_onedrive_backup_launchagent.sh
+```
+
 Verify Traccar/GeoPulse counts through APIs without printing coordinates:
 
 ```bash
@@ -139,6 +152,7 @@ ai.openclaw.findmy.export
 ai.openclaw.findmy.owntracks-bridge
 ai.openclaw.findmy.traccar-bridge
 ai.openclaw.findmy.geopulse-bridge
+ai.openclaw.findmy.onedrive-backup
 ```
 
 Persistent/local-start jobs:
@@ -150,6 +164,15 @@ ai.openclaw.findmy.owntracks-stack
 ai.openclaw.findmy.traccar-stack
 ai.openclaw.findmy.geopulse-stack
 ```
+
+OneDrive target:
+
+```text
+/Users/mh/Library/CloudStorage/OneDrive-Personal/Anlagen/Backup/OpenClaw-FindMy
+```
+
+`Latest/` is redacted and agent-safe. `Archive/Encrypted/` is private and
+encrypted; do not print archive contents or the local backup passphrase.
 
 Inspect:
 
